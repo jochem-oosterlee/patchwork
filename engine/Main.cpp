@@ -983,6 +983,12 @@ private:
             juce::MessageManager::callAsync ([this] { broadcastCpState(); });
             return;
         }
+        else if (cmd == "cp_open_editor")
+        {
+            const int channel = (int) v.getProperty ("channel", 1);
+            juce::MessageManager::callAsync ([this, channel] { plugin.showEditor (cpVstId (juce::jlimit (1, 16, channel))); });
+            return;
+        }
         else if (cmd == "route_channel")
         {
             // chord-pad routing: map a track channel to a plugin by managing a
