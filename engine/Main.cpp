@@ -122,6 +122,31 @@ public:
     Glyph glyph;
 };
 
+// Shared transport button in the title bar: play triangle when stopped, pause
+// bars (green) when the engine play-head is running. Drives chord-pad.
+class PlayButton : public juce::Button
+{
+public:
+    PlayButton() : juce::Button ({}) {}
+    bool playing = false;
+    void paintButton (juce::Graphics& g, bool over, bool down) override
+    {
+        if (over || down) g.fillAll (juce::Colour (0x20ffffff));
+        auto c = getLocalBounds().getCentre().toFloat();
+        g.setColour (playing ? juce::Colour (0xff3ddc84) : juce::Colour (0xffd8dde3));
+        if (playing)
+        {
+            g.fillRect (juce::Rectangle<float> (c.x - 4.5f, c.y - 5.0f, 3.0f, 10.0f));
+            g.fillRect (juce::Rectangle<float> (c.x + 1.5f, c.y - 5.0f, 3.0f, 10.0f));
+        }
+        else
+        {
+            juce::Path p; p.addTriangle (c.x - 4.0f, c.y - 5.5f, c.x - 4.0f, c.y + 5.5f, c.x + 5.5f, c.y);
+            g.fillPath (p);
+        }
+    }
+};
+
 // Custom in-style title bar for the borderless window: app name, view tabs,
 // and minimise / maximise / close. Dragging the empty caption hands off to the
 // native move loop (WM_NCLBUTTONDOWN) so Windows drag + Aero Snap work; the
@@ -130,11 +155,14 @@ class TitleBar : public juce::Component
 {
 public:
     std::function<void (int)> onTab;
+    std::function<void ()>    onTransport;   // play/stop toggle → drives chord-pad
     juce::TextButton tabPatchwork { "Patchwork" }, tabChordPad { "chord-pad" };
 
     TitleBar()
     {
         setInterceptsMouseClicks (true, true);
+        addAndMakeVisible (playBtn);
+        playBtn.onClick = [this] { if (onTransport) onTransport(); };
         for (auto* t : { &tabPatchwork, &tabChordPad })
         {
             t->setClickingTogglesState (true);
@@ -165,7 +193,9 @@ public:
     void setStatus (juce::String text, bool playing)
     {
         if (text == statusText && playing == statusPlaying) return;
-        statusText = std::move (text); statusPlaying = playing; repaint();
+        statusText = std::move (text); statusPlaying = playing;
+        playBtn.playing = playing; playBtn.repaint();
+        repaint();
     }
 
     void paint (juce::Graphics& g) override
@@ -198,6 +228,7 @@ public:
         closeBtn.setBounds (r.removeFromRight (bw));
         maxBtn  .setBounds (r.removeFromRight (bw));
         minBtn  .setBounds (r.removeFromRight (bw));
+        playBtn.setBounds (getWidth() / 2 - 14, (getHeight() - 28) / 2, 28, 28);
         if (tabsShown)
         {
             auto tabs = r.withTrimmedLeft (100).reduced (0, 5);
@@ -222,6 +253,7 @@ public:
 
 private:
     WinButton minBtn { WinButton::Minimise }, maxBtn { WinButton::Maximise }, closeBtn { WinButton::Close };
+    PlayButton playBtn;
     bool tabsShown = false, maximised = false;
     juce::Rectangle<int> restoreBounds;
     juce::String statusText;
@@ -322,6 +354,15 @@ public:
         // Custom in-style title bar (the window is borderless): app name, view
         // tabs, and window buttons. Handles drag + Aero Snap natively.
         titleBar.onTab = [this] (int t) { showTab (t); };
+        titleBar.onTransport = [this]
+        {
+            // Play/stop from the title bar → ask chord-pad (the sequencer) to
+            // toggle; it drives our play-head back over the link.
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("event",  "transport_request");
+            o->setProperty ("action", "toggle");
+            ws.broadcast (juce::var (o.get()));
+        };
         addAndMakeVisible (titleBar);
 
         // Embed chord-pad as a second view in the same window (one app). Only
