@@ -964,6 +964,43 @@ private:
             pendingClick.store ((bool) v.getProperty ("accent", false) ? 2 : 1);
             return;
         }
+        else if (cmd == "route_channel")
+        {
+            // chord-pad routing: map a track channel to a plugin by managing a
+            // per-channel virtual "chord-pad" source and its preset assignment.
+            const int  channel  = juce::jlimit (1, 16, (int) v.getProperty ("channel", 1));
+            const auto presetId = v.getProperty ("presetId", "").toString();
+            const bool on       = (bool) v.getProperty ("on", true);
+            juce::MessageManager::callAsync ([this, channel, presetId, on]
+            {
+                pushUndo();
+                const juce::uint16 mask = (juce::uint16) (1u << (channel - 1));
+                juce::String srcId;
+                for (auto& s : settings.sources)
+                    if (s.deviceName == MidiManager::kChordPadInput && s.channelMask == mask) { srcId = s.id; break; }
+                if (srcId.isEmpty())
+                {
+                    Source s;
+                    s.id          = juce::Uuid().toString();
+                    s.deviceName  = MidiManager::kChordPadInput;
+                    s.label       = "chord-pad ch" + juce::String (channel);
+                    s.icon        = "music";
+                    s.channelMask = mask;
+                    srcId = s.id;
+                    settings.sources.push_back (std::move (s));
+                }
+                for (auto& set : settings.sets)
+                    for (auto& pr : set.presets)
+                        if (pr.id == presetId)
+                        {
+                            if (on) { if (! pr.sourceIds.contains (srcId)) pr.sourceIds.add (srcId); }
+                            else    { pr.sourceIds.removeString (srcId); sendPanic (pr.id); }
+                        }
+                settings.save();
+                broadcastState();
+            });
+            return;
+        }
         else if (cmd == "project_save") { juce::MessageManager::callAsync ([this] { startProjectSave(); }); return; }
         else if (cmd == "project_open") { juce::MessageManager::callAsync ([this] { startProjectOpen(); }); return; }
         else if (cmd == "project_data")
