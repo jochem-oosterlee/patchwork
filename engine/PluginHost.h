@@ -202,6 +202,16 @@ public:
         // doomed dtor runs here, off the audio thread.
     }
 
+    // Unload every live plugin (used when opening a project — the current rack
+    // is replaced by the project's).
+    void unloadAll()
+    {
+        jassert (juce::MessageManager::existsAndIsCurrentThread());
+        juce::StringArray ids;
+        { const juce::ScopedLock sl (lock); for (auto& [id, _] : live) ids.add (id); }
+        for (auto& id : ids) unload (id);
+    }
+
     void showEditor (const juce::String& presetId)
     {
         jassert (juce::MessageManager::existsAndIsCurrentThread());

@@ -6,6 +6,15 @@
 #include <array>
 #include <cmath>
 #include <utility>
+#if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX
+ #endif
+ #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+ #endif
+ #include <windows.h>
+#endif
 #include "WebSocketBridge.h"
 #include "HttpFileServer.h"
 #include "StaticDirServer.h"
@@ -92,28 +101,152 @@ static constexpr int kWsPort       = 7681;
 static constexpr int kHttpPort     = 7682;
 static constexpr int kChordPadPort = 7683;   // serves the chord-pad web app locally
 
-// A slim draggable top strip. The main window is borderless (no native title
-// bar), so this doubles as the window move-handle AND hosts the view tabs.
-class WindowDragBar : public juce::Component
+// Window caption / min-max-close buttons drawn as vector glyphs (no unicode
+// in source — em-dash etc. mangled the encoding here before).
+class WinButton : public juce::Button
 {
 public:
-    WindowDragBar() { setInterceptsMouseClicks (true, true); }
+    enum Glyph { Minimise, Maximise, Close };
+    explicit WinButton (Glyph g) : juce::Button ({}), glyph (g) {}
+    void paintButton (juce::Graphics& g, bool over, bool down) override
+    {
+        if (over || down)
+            g.fillAll (glyph == Close ? juce::Colour (0xffc0392b) : juce::Colour (0x24ffffff));
+        g.setColour (juce::Colour (0xffd8dde3));
+        auto c = getLocalBounds().getCentre().toFloat();
+        const float s = 4.5f;
+        if (glyph == Minimise)      g.drawLine (c.x - s, c.y, c.x + s, c.y, 1.3f);
+        else if (glyph == Maximise) g.drawRect (juce::Rectangle<float> (c.x - s, c.y - s, 2 * s, 2 * s), 1.2f);
+        else { g.drawLine (c.x - s, c.y - s, c.x + s, c.y + s, 1.3f); g.drawLine (c.x - s, c.y + s, c.x + s, c.y - s, 1.3f); }
+    }
+    Glyph glyph;
+};
+
+// Custom in-style title bar for the borderless window: app name, view tabs,
+// and minimise / maximise / close. Dragging the empty caption hands off to the
+// native move loop (WM_NCLBUTTONDOWN) so Windows drag + Aero Snap work; the
+// maximise button "maximises" to the monitor work area (respects the taskbar).
+class TitleBar : public juce::Component
+{
+public:
+    std::function<void (int)> onTab;
+    juce::TextButton tabPatchwork { "Patchwork" }, tabChordPad { "chord-pad" };
+
+    TitleBar()
+    {
+        setInterceptsMouseClicks (true, true);
+        for (auto* t : { &tabPatchwork, &tabChordPad })
+        {
+            t->setClickingTogglesState (true);
+            t->setRadioGroupId (100);
+            t->setColour (juce::TextButton::buttonColourId,   juce::Colour (0x00000000));
+            t->setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff23262c));
+            t->setColour (juce::TextButton::textColourOffId,  juce::Colour (0xff8a8f98));
+            t->setColour (juce::TextButton::textColourOnId,   juce::Colour (0xffffffff));
+            addChildComponent (*t);
+        }
+        tabPatchwork.onClick = [this] { if (onTab) onTab (0); };
+        tabChordPad .onClick = [this] { if (onTab) onTab (1); };
+
+        for (auto* b : { &minBtn, &maxBtn, &closeBtn }) addAndMakeVisible (*b);
+        minBtn.onClick   = [this] { nativeMinimise(); };
+        maxBtn.onClick   = [this] { toggleMaximise(); };
+        closeBtn.onClick = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
+    }
+
+    void setTabsVisible (bool v) { tabsShown = v; tabPatchwork.setVisible (v); tabChordPad.setVisible (v); resized(); }
+    void setActiveTab (int i)
+    {
+        tabPatchwork.setToggleState (i == 0, juce::dontSendNotification);
+        tabChordPad .setToggleState (i == 1, juce::dontSendNotification);
+    }
+
+    // Shared engine status shown centre-right on both tabs (bar.beat + tempo).
+    void setStatus (juce::String text, bool playing)
+    {
+        if (text == statusText && playing == statusPlaying) return;
+        statusText = std::move (text); statusPlaying = playing; repaint();
+    }
+
     void paint (juce::Graphics& g) override
     {
         g.fillAll (juce::Colour (0xff141619));
         g.setColour (juce::Colour (0x18ffffff));
-        g.fillRect (0, getHeight() - 1, getWidth(), 1);   // hairline separator
+        g.fillRect (0, getHeight() - 1, getWidth(), 1);
+        g.setColour (juce::Colour (0xffc3c9d1));
+        g.setFont (juce::Font (13.0f, juce::Font::bold));
+        g.drawText ("Patchwork", 12, 0, 110, getHeight(), juce::Justification::centredLeft);
+
+        // Shared engine status (bar.beat + tempo) with a play/stop dot, drawn
+        // just left of the window buttons — visible on both tabs.
+        if (statusText.isNotEmpty())
+        {
+            const int rightEdge = getWidth() - 3 * 46 - 12;   // before min/max/close
+            g.setColour (statusPlaying ? juce::Colour (0xff3ddc84) : juce::Colour (0x40ffffff));
+            g.fillEllipse ((float) rightEdge - 6, (float) getHeight() / 2.0f - 3.0f, 6.0f, 6.0f);
+            g.setColour (juce::Colour (0xff9aa0a8));
+            g.setFont (juce::Font (12.0f));
+            g.drawText (statusText, juce::Rectangle<int> (0, 0, rightEdge - 12, getHeight()),
+                        juce::Justification::centredRight);
+        }
     }
-    void mouseDown (const juce::MouseEvent& e) override
+
+    void resized() override
     {
-        if (auto* w = getTopLevelComponent()) dragger.startDraggingComponent (w, e);
+        auto r = getLocalBounds();
+        const int bw = 46;
+        closeBtn.setBounds (r.removeFromRight (bw));
+        maxBtn  .setBounds (r.removeFromRight (bw));
+        minBtn  .setBounds (r.removeFromRight (bw));
+        if (tabsShown)
+        {
+            auto tabs = r.withTrimmedLeft (100).reduced (0, 5);
+            tabPatchwork.setBounds (tabs.removeFromLeft (118));
+            tabs.removeFromLeft (4);
+            tabChordPad.setBounds (tabs.removeFromLeft (118));
+        }
     }
-    void mouseDrag (const juce::MouseEvent& e) override
+
+    void mouseDown (const juce::MouseEvent&) override
     {
-        if (auto* w = getTopLevelComponent()) dragger.dragComponent (w, e, nullptr);
+       #if JUCE_WINDOWS
+        if (auto* peer = getTopLevelComponent()->getPeer())
+        {
+            auto hwnd = (HWND) peer->getNativeHandle();
+            ReleaseCapture();
+            SendMessage (hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);   // native move + Aero Snap
+        }
+       #endif
     }
+    void mouseDoubleClick (const juce::MouseEvent&) override { toggleMaximise(); }
+
 private:
-    juce::ComponentDragger dragger;
+    WinButton minBtn { WinButton::Minimise }, maxBtn { WinButton::Maximise }, closeBtn { WinButton::Close };
+    bool tabsShown = false, maximised = false;
+    juce::Rectangle<int> restoreBounds;
+    juce::String statusText;
+    bool statusPlaying = false;
+
+    void nativeMinimise()
+    {
+       #if JUCE_WINDOWS
+        if (auto* peer = getTopLevelComponent()->getPeer())
+            ShowWindow ((HWND) peer->getNativeHandle(), SW_MINIMIZE);
+       #endif
+    }
+    void toggleMaximise()
+    {
+        auto* top = getTopLevelComponent();
+        if (top == nullptr) return;
+        if (! maximised)
+        {
+            restoreBounds = top->getBounds();
+            if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForPoint (top->getBounds().getCentre()))
+                top->setBounds (d->userArea);   // work area = excludes taskbar
+            maximised = true;
+        }
+        else { top->setBounds (restoreBounds); maximised = false; }
+    }
 };
 
 class MainComponent : public juce::AudioAppComponent,
@@ -186,34 +319,22 @@ public:
         addAndMakeVisible (*browser);
         browser->goToURL ("http://127.0.0.1:" + juce::String (kHttpPort) + "/");
 
-        // Draggable top strip (the window is borderless) — also carries the
-        // view tabs when chord-pad is embedded.
-        addAndMakeVisible (topBar);
+        // Custom in-style title bar (the window is borderless): app name, view
+        // tabs, and window buttons. Handles drag + Aero Snap natively.
+        titleBar.onTab = [this] (int t) { showTab (t); };
+        addAndMakeVisible (titleBar);
 
         // Embed chord-pad as a second view in the same window (one app). Only
-        // when its local server is up. The tab bar switches between the two;
-        // both stay loaded (withKeepPageLoadedWhenBrowserIsHidden) so chord-pad
-        // keeps its WS link + transport while you're on the Patchwork tab.
+        // when its local server is up. The tabs switch between the two; both
+        // stay loaded (withKeepPageLoadedWhenBrowserIsHidden) so chord-pad keeps
+        // its WS link + transport while you're on the Patchwork tab.
         if (chordPad.isListening())
         {
             auto* cb = new Browser (opts);
             chordBrowser.reset (cb);
             addChildComponent (*chordBrowser);
             chordBrowser->goToURL ("http://127.0.0.1:" + juce::String (kChordPadPort) + "/chord-pad.html");
-
-            for (auto* t : { &tabPatchwork, &tabChordPad })
-            {
-                t->setClickingTogglesState (true);
-                t->setRadioGroupId (100);
-                t->setColour (juce::TextButton::buttonColourId,     juce::Colour (0x00000000)); // flat when inactive
-                t->setColour (juce::TextButton::buttonOnColourId,   juce::Colour (0xff23262c)); // raised when active
-                t->setColour (juce::TextButton::textColourOffId,    juce::Colour (0xff8a8f98));
-                t->setColour (juce::TextButton::textColourOnId,     juce::Colour (0xffffffff));
-                t->setColour (juce::ComboBox::outlineColourId,      juce::Colour (0x00000000)); // no border
-                topBar.addAndMakeVisible (*t);
-            }
-            tabPatchwork.onClick = [this] { showTab (0); };
-            tabChordPad .onClick = [this] { showTab (1); };
+            titleBar.setTabsVisible (true);
             hasTabs = true;
         }
         showTab (0);
@@ -332,6 +453,68 @@ public:
         broadcastState();
     }
 
+    // ---- Unified project (song + rack + routing) ------------------------
+    // A project bundles Patchwork's settings (sets/presets/plugin state/sources
+    // /tempo) with chord-pad's arrangement, fetched over the WS link. Patchwork
+    // owns the file; chord-pad's half round-trips through get_project/load_project.
+    void startProjectSave()
+    {
+        projectChooser = std::make_unique<juce::FileChooser> ("Save project", juce::File(), "*.pwproj");
+        projectChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                     | juce::FileBrowserComponent::canSelectFiles
+                                     | juce::FileBrowserComponent::warnAboutOverwriting,
+            [this] (const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (f == juce::File()) return;
+                if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("pwproj");
+                settings.save();                    // flush current rack/routing to settings.json
+                pendingSaveFile = f;
+                juce::DynamicObject::Ptr req = new juce::DynamicObject();
+                req->setProperty ("event", "get_project");
+                ws.broadcast (juce::var (req.get()));   // chord-pad answers via project_data
+                // Fallback: if chord-pad isn't linked, still save the Patchwork side.
+                juce::Timer::callAfterDelay (1500, [this]
+                {
+                    if (pendingSaveFile == juce::File()) return;   // already completed
+                    juce::DynamicObject::Ptr proj = new juce::DynamicObject();
+                    proj->setProperty ("format", "patchwork-project");
+                    proj->setProperty ("version", 1);
+                    proj->setProperty ("patchwork", juce::JSON::parse (Settings::file()));
+                    pendingSaveFile.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
+                    logToUi ("project saved (Patchwork only — chord-pad not linked): " + pendingSaveFile.getFullPathName());
+                    pendingSaveFile = juce::File();
+                });
+            });
+    }
+
+    void startProjectOpen()
+    {
+        projectChooser = std::make_unique<juce::FileChooser> ("Open project", juce::File(), "*.pwproj;*.json");
+        projectChooser->launchAsync (juce::FileBrowserComponent::openMode
+                                     | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                auto f = fc.getResult();
+                if (! f.existsAsFile()) return;
+                auto v = juce::JSON::parse (f);
+                if (! v.isObject()) { logToUi ("not a valid project file"); return; }
+                auto patchVar = v.getProperty ("patchwork", juce::var());
+                if (patchVar.isObject())
+                {
+                    Settings::file().replaceWithText (juce::JSON::toString (patchVar, true));
+                    plugin.unloadAll();
+                    settings.load();
+                    restoreFromSettings();
+                }
+                juce::DynamicObject::Ptr msg = new juce::DynamicObject();
+                msg->setProperty ("event", "load_project");
+                msg->setProperty ("data", v.getProperty ("chordpad", juce::var()));
+                ws.broadcast (juce::var (msg.get()));   // chord-pad applies its half
+                logToUi ("project opened: " + f.getFullPathName());
+            });
+    }
+
     void prepareToPlay (int samplesPerBlock, double sampleRate) override
     {
         currentSampleRate = sampleRate;
@@ -427,17 +610,7 @@ public:
     void resized() override
     {
         auto r = getLocalBounds();
-        // Always reserve the top strip: it's the window's drag handle (the
-        // window is borderless) and, when embedded, holds the view tabs.
-        auto bar = r.removeFromTop (34);
-        topBar.setBounds (bar);
-        if (hasTabs)
-        {
-            auto inner = topBar.getLocalBounds().reduced (6, 5);
-            tabPatchwork.setBounds (inner.removeFromLeft (120));
-            inner.removeFromLeft (4);
-            tabChordPad .setBounds (inner.removeFromLeft (120));
-        }
+        titleBar.setBounds (r.removeFromTop (34));   // custom title bar / caption
         if (browser      != nullptr) browser->setBounds (r);
         if (chordBrowser != nullptr) chordBrowser->setBounds (r);
     }
@@ -449,9 +622,7 @@ public:
         activeTab = tab;
         if (browser      != nullptr) browser->setVisible (tab == 0);
         if (chordBrowser != nullptr) chordBrowser->setVisible (tab == 1);
-        tabPatchwork.setToggleState (tab == 0, juce::dontSendNotification);
-        tabChordPad .setToggleState (tab == 1, juce::dontSendNotification);
-        resized();
+        titleBar.setActiveTab (tab);
     }
 
 private:
@@ -594,6 +765,24 @@ private:
 
     void timerCallback() override
     {
+        // Shared engine status in the title bar (bar.beat + tempo), visible on
+        // both tabs so the two apps read as one.
+        {
+            const bool   playing = plugin.playHead.isPlaying.load();
+            const double bpm     = plugin.playHead.bpm.load();
+            const double ppq     = plugin.playHead.ppqPosition.load();
+            const int    tsN     = juce::jmax (1, (int) plugin.playHead.tsNum.load());
+            juce::String s;
+            if (playing)
+            {
+                const int bar  = (int) std::floor (ppq / tsN) + 1;
+                const int beat = (int) std::floor (std::fmod (ppq, (double) tsN)) + 1;
+                s << bar << "." << beat << "   ";
+            }
+            s << juce::String (juce::roundToInt (bpm)) << " BPM";
+            titleBar.setStatus (s, playing);
+        }
+
         // Re-scan available MIDI devices every couple of seconds. If the set
         // changes, reopen anything that should be open, refresh the rail and
         // the MIDI-settings checkbox list.
@@ -732,6 +921,27 @@ private:
         {
             // One-shot metronome click (chord-pad's record count-in).
             pendingClick.store ((bool) v.getProperty ("accent", false) ? 2 : 1);
+            return;
+        }
+        else if (cmd == "project_save") { juce::MessageManager::callAsync ([this] { startProjectSave(); }); return; }
+        else if (cmd == "project_open") { juce::MessageManager::callAsync ([this] { startProjectOpen(); }); return; }
+        else if (cmd == "project_data")
+        {
+            // chord-pad's answer to our get_project request — complete the save.
+            if (pendingSaveFile != juce::File())
+            {
+                auto chordVar = v.getProperty ("data", juce::var());
+                juce::var patchVar = juce::JSON::parse (Settings::file());
+                juce::DynamicObject::Ptr proj = new juce::DynamicObject();
+                proj->setProperty ("format",    "patchwork-project");
+                proj->setProperty ("version",   1);
+                proj->setProperty ("patchwork", patchVar);
+                proj->setProperty ("chordpad",  chordVar);
+                const auto ok = pendingSaveFile.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
+                logToUi (ok ? ("project saved: " + pendingSaveFile.getFullPathName())
+                            : ("project save FAILED: " + pendingSaveFile.getFullPathName()));
+                pendingSaveFile = juce::File();
+            }
             return;
         }
 
@@ -2014,11 +2224,11 @@ private:
     Settings           settings;
     int                currentPresetIndex = -1;
     std::unique_ptr<juce::FileChooser>          chooser;
+    std::unique_ptr<juce::FileChooser>          projectChooser;   // save/open project
+    juce::File                                  pendingSaveFile;  // awaiting chord-pad's data
     std::unique_ptr<juce::WebBrowserComponent>  browser;
     std::unique_ptr<juce::WebBrowserComponent>  chordBrowser;   // embedded chord-pad
-    WindowDragBar    topBar;                                     // drag handle + tabs
-    juce::TextButton tabPatchwork { "Patchwork" };
-    juce::TextButton tabChordPad  { "chord-pad" };
+    TitleBar titleBar;                                          // custom caption + tabs + window buttons
     bool hasTabs  = false;
     int  activeTab = 0;
 };

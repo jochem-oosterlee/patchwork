@@ -1511,35 +1511,7 @@ function appendLog(msg) {
 }
 logClearBtn.addEventListener('click', () => { logBodyEl.innerHTML = ''; });
 
-let dragLastX = 0, dragLastY = 0, dragging = false, dragPending = null;
-function flushDrag() {
-  if (!dragPending) return;
-  send({ cmd: 'window_move_by', dx: dragPending.dx, dy: dragPending.dy });
-  dragPending = null;
-}
-document.querySelector('.titlebar').addEventListener('mousedown', e => {
-  if (e.button !== 0) return;
-  if (e.target.closest('.no-drag')) return;
-  dragging = true;
-  dragLastX = e.screenX;
-  dragLastY = e.screenY;
-  e.preventDefault();
-});
-document.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  const dx = e.screenX - dragLastX;
-  const dy = e.screenY - dragLastY;
-  if (dx === 0 && dy === 0) return;
-  dragLastX = e.screenX;
-  dragLastY = e.screenY;
-  if (dragPending) { dragPending.dx += dx; dragPending.dy += dy; }
-  else { dragPending = { dx, dy }; requestAnimationFrame(flushDrag); }
-});
-document.addEventListener('mouseup', () => { dragging = false; });
-document.querySelector('.titlebar').addEventListener('dblclick', e => {
-  if (e.target.closest('.no-drag')) return;
-  send({ cmd: 'window_maximize' });
-});
+// Window drag + maximise are handled by the native title bar now.
 
 document.getElementById('panic-btn').addEventListener('click', () => send({ cmd: 'panic' }));
 
@@ -1590,9 +1562,7 @@ function applyTempoState(m) {
     tempoTsBtn.textContent = m.tsNumerator + '/' + m.tsDenominator;
 }
 
-document.getElementById('win-minimize').addEventListener('click', () => send({ cmd: 'window_minimize' }));
-document.getElementById('win-maximize').addEventListener('click', () => send({ cmd: 'window_maximize' }));
-document.getElementById('win-close').addEventListener('click', () => send({ cmd: 'window_close' }));
+/* Window controls (min/max/close) + window drag live in the native title bar. */
 
 /* dropdown menus */
 function closeAllMenus() {
@@ -1647,6 +1617,8 @@ document.querySelectorAll('.dropdown-menu .menu-item').forEach(item => {
     else if (action === 'midi-settings') openModal(midiModal);
     else if (action === 'new-from-library') { pickingMode = 'new-preset'; openLibrary(); }
     else if (action === 'new-from-file') { send({ cmd: 'open_plugin_picker' }); }
+    else if (action === 'save-project') { send({ cmd: 'project_save' }); }
+    else if (action === 'open-project') { send({ cmd: 'project_open' }); }
     closeAllMenus();
   });
 });

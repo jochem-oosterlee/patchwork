@@ -27,16 +27,15 @@
         <button id="btn-redo" class="icon-btn" title="redo (Ctrl+Shift+Z)" disabled><i data-lucide="redo-2"></i></button>
       </nav>
       <div class="drag-spacer"></div>
-      <div class="no-drag header-buttons">
-        <button id="win-minimize" class="icon-btn winctrl" title="minimize"><i data-lucide="minus"></i></button>
-        <button id="win-maximize" class="icon-btn winctrl" title="maximize"><i data-lucide="square"></i></button>
-        <button id="win-close" class="icon-btn winctrl close" title="close"><i data-lucide="x"></i></button>
-      </div>
+      <!-- Window controls (min/max/close) live in the native title bar now. -->
     </header>
 
     <div id="menu-file" class="dropdown-menu" hidden>
+      <button class="menu-item" data-action="save-project"><span class="menu-icon"><i data-lucide="save"></i></span><span class="menu-label">Save project…</span></button>
+      <button class="menu-item" data-action="open-project"><span class="menu-icon"><i data-lucide="folder-open"></i></span><span class="menu-label">Open project…</span></button>
+      <div class="menu-sep"></div>
       <button class="menu-item" data-action="new-from-library"><span class="menu-icon"><i data-lucide="library"></i></span><span class="menu-label">New preset from library…</span></button>
-      <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="folder-open"></i></span><span class="menu-label">New preset from file…</span></button>
+      <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="file-plus"></i></span><span class="menu-label">New preset from file…</span></button>
     </div>
     <div id="menu-view" class="dropdown-menu" hidden>
       <button class="menu-item menu-toggle" data-section="keyboard">
