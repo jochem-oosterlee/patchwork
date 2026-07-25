@@ -1,0 +1,16 @@
+diff --git a/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp b/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
+index 5406ea40b..1a9c07ebd 100644
+--- a/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
++++ b/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
+@@ -1016,9 +1016,8 @@ private:
+ 
+         if (settings != nullptr)
+         {
+-           #if ! JUCE_DEBUG
+-            settings->put_AreDevToolsEnabled (false);
+-           #endif
++            // MidiHost patch: always allow DevTools so we can debug in release.
++            settings->put_AreDevToolsEnabled (true);
+ 
+             settings->put_IsStatusBarEnabled (! preferences.getWinWebView2BackendOptions().getIsStatusBarDisabled());
+             settings->put_IsBuiltInErrorPageEnabled (! preferences.getWinWebView2BackendOptions().getIsBuiltInErrorPageDisabled());

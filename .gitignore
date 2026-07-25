@@ -1,0 +1,5 @@
+build/
+.vs/
+*.user
+CMakeUserPresets.json
+tools/node_modules/

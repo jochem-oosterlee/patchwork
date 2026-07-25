@@ -1,0 +1,16 @@
+diff --git a/modules/juce_audio_processors/format_types/juce_VST3PluginFormat.cpp b/modules/juce_audio_processors/format_types/juce_VST3PluginFormat.cpp
+index 7afd89b9e..f8a23a426 100644
+--- a/modules/juce_audio_processors/format_types/juce_VST3PluginFormat.cpp
++++ b/modules/juce_audio_processors/format_types/juce_VST3PluginFormat.cpp
+@@ -3776,6 +3776,11 @@ private:
+ 
+                 if (auto* queue = inputParameterChanges->addParameterData (controlID, queueIndex))
+                     queue->append ({ (Steinberg::int32) time, (float) paramValue });
++
++                // MidiHost patch: also dispatch to the edit controller so the
++                // plugin's GUI updates when MIDI CCs drive mapped parameters.
++                if (auto* param = getParameterForID (controlID))
++                    parameterDispatcher.push (param->getParameterIndex(), (float) paramValue);
+             };
+ 
+             MidiEventList::hostToPluginEventList (*midiInputs,

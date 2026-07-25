@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patchwork</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body class="hide-keyboard hide-log" style="background:#0d0e10; color:#e8e6df; margin:0;">
+  <div id="splash" class="splash">
+    <div class="logo"><i data-lucide="cable"></i></div>
+    <div class="title">patchwork</div>
+  </div>
+  <div class="app">
+    <header class="titlebar">
+      <i data-lucide="cable" class="app-logo"></i>
+      <h1>patchwork</h1>
+      <nav class="menu-bar no-drag">
+        <button class="menu-trigger" data-menu="file">File</button>
+        <button class="menu-trigger" data-menu="view">View</button>
+        <button class="menu-trigger" data-menu="settings">Settings</button>
+        <span class="titlebar-sep"></span>
+        <button id="btn-undo" class="icon-btn" title="undo (Ctrl+Z)" disabled><i data-lucide="undo-2"></i></button>
+        <button id="btn-redo" class="icon-btn" title="redo (Ctrl+Shift+Z)" disabled><i data-lucide="redo-2"></i></button>
+      </nav>
+      <div class="drag-spacer"></div>
+      <div class="no-drag header-buttons">
+        <button id="win-minimize" class="icon-btn winctrl" title="minimize"><i data-lucide="minus"></i></button>
+        <button id="win-maximize" class="icon-btn winctrl" title="maximize"><i data-lucide="square"></i></button>
+        <button id="win-close" class="icon-btn winctrl close" title="close"><i data-lucide="x"></i></button>
+      </div>
+    </header>
+
+    <div id="menu-file" class="dropdown-menu" hidden>
+      <button class="menu-item" data-action="new-from-library"><span class="menu-icon"><i data-lucide="library"></i></span><span class="menu-label">New preset from library…</span></button>
+      <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="folder-open"></i></span><span class="menu-label">New preset from file…</span></button>
+    </div>
+    <div id="menu-view" class="dropdown-menu" hidden>
+      <button class="menu-item menu-toggle" data-section="keyboard">
+        <span class="menu-icon"><i data-lucide="piano"></i></span>
+        <span class="menu-label">Keyboard</span>
+        <span class="menu-state"></span>
+      </button>
+      <button class="menu-item menu-toggle" data-section="log">
+        <span class="menu-icon"><i data-lucide="terminal"></i></span>
+        <span class="menu-label">Log</span>
+        <span class="menu-state"></span>
+      </button>
+    </div>
+    <div id="menu-settings" class="dropdown-menu" hidden>
+      <button class="menu-item" data-action="audio-settings"><span class="menu-icon"><i data-lucide="volume-2"></i></span><span class="menu-label">Audio settings…</span></button>
+      <button class="menu-item" data-action="midi-settings"><span class="menu-icon"><i data-lucide="cable"></i></span><span class="menu-label">MIDI settings…</span></button>
+    </div>
+
+    <main>
+      <section id="kb-section">
+        <h2>Keyboard</h2>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px;">
+          <label>output
+            <select id="kb-output"><option value="">— off —</option></select>
+          </label>
+          <div class="kb-octave">
+            <button id="kb-oct-down" class="icon-btn" title="octave down"><i data-lucide="chevron-left"></i></button>
+            <span id="kb-oct-label">C3</span>
+            <button id="kb-oct-up" class="icon-btn" title="octave up"><i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="kb-wrap">
+          <div id="kb-container" class="kb-container"></div>
+        </div>
+      </section>
+
+      <section class="patchset-section">
+        <div class="patchset-bar">
+          <button id="patchset-browse" class="icon-btn patchset-nav" title="browse all patchsets"><i data-lucide="library"></i></button>
+          <button id="patchset-prev" class="icon-btn patchset-nav" title="previous"><i data-lucide="chevron-left"></i></button>
+          <div class="patchset-strip-wrap">
+            <div id="patchset-strip" class="patchset-strip"></div>
+            <input id="patchset-rename-input" type="text" hidden>
+          </div>
+          <button id="patchset-next" class="icon-btn patchset-nav" title="next"><i data-lucide="chevron-right"></i></button>
+        </div>
+        <div class="patchset-body">
+          <aside class="sources-rail">
+            <div class="sources-rail-head">
+              <span class="sources-rail-title">Sources</span>
+              <button id="source-add" class="icon-btn" title="add source"><i data-lucide="plus"></i></button>
+            </div>
+            <div id="sources-list" class="sources-list"></div>
+            <div class="sources-empty-hint">No sources — click + to add one</div>
+          </aside>
+          <div class="preset-list-wrap">
+            <div id="preset-list" class="preset-list"></div>
+            <div id="preset-ghost-wrap"></div>
+          </div>
+        </div>
+      </section>
+
+      <div id="source-modal" class="modal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-panel modal-panel-small">
+          <header class="modal-header">
+            <h2>Source</h2>
+            <button class="modal-close" data-close-modal="source-modal" aria-label="close"><i data-lucide="x"></i></button>
+          </header>
+          <div class="modal-body">
+            <label class="form-row">label
+              <input id="source-label" type="text">
+            </label>
+            <div class="form-row">
+              <span>icon</span>
+              <div id="source-icon-grid" class="icon-grid"></div>
+            </div>
+            <label class="form-row">device
+              <select id="source-device"></select>
+            </label>
+            <div class="form-row">
+              <span>channels <em class="hint">(none = all)</em></span>
+              <div id="source-channels" class="channel-grid"></div>
+            </div>
+            <label class="form-row form-row-inline">
+              <input id="source-is-clock" type="checkbox">
+              <span>Use as MIDI clock master</span>
+            </label>
+            <div class="form-row source-actions">
+              <button id="source-default" class="ghost">Set as default</button>
+              <button id="source-delete" class="danger">Delete source</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="log-section">
+        <header class="log-header">
+          <h2>Log</h2>
+          <div style="flex:1"></div>
+          <button id="log-clear" class="icon-btn" title="clear"><i data-lucide="trash-2"></i></button>
+        </header>
+        <div id="log-body" class="log-body"></div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <div class="status-group">
+        <span id="midi-in-led" class="midi-led" title="midi in"></span>
+        <span class="status-label">in</span>
+        <span id="midi-out-led" class="midi-led" title="midi out"></span>
+        <span class="status-label">out</span>
+        <button id="panic-btn" class="panic-btn" title="all-notes-off / all-sound-off to every live plugin (panic)"><i data-lucide="octagon-alert"></i><span>panic</span></button>
+        <div id="tempo-widget" class="tempo-widget" title="tempo — click to type, scroll to nudge. Auto-follows MIDI clock when received.">
+          <input id="tempo-input" type="number" min="20" max="999" step="0.1" value="120">
+          <span class="tempo-unit">bpm</span>
+          <button id="tempo-clock-indicator" class="tempo-clock-indicator" title="follow MIDI clock (click to toggle)"><i data-lucide="radio"></i></button>
+          <span class="tempo-sep"></span>
+          <button id="tempo-ts" class="tempo-ts" title="time signature — click to change">4/4</button>
+        </div>
+      </div>
+      <div class="flex-spacer"></div>
+      <span id="plugin-status" class="status-plugin empty">no plugin</span>
+    </footer>
+  </div>
+
+  <div id="patchset-browser-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel modal-panel-medium">
+      <header class="modal-header">
+        <h2>Patchsets</h2>
+        <button class="modal-close" data-close-modal="patchset-browser-modal" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div class="patchset-browser-toolbar">
+          <input id="patchset-browser-search" type="text" placeholder="search by name or notes…">
+          <label class="checkbox-inline">
+            <input id="patchset-browser-show-archived" type="checkbox">
+            <span>Show archived</span>
+          </label>
+        </div>
+        <div id="patchset-browser-list" class="patchset-browser-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="library-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel">
+      <header class="modal-header">
+        <h2>Plugin library</h2>
+        <button id="library-close" class="modal-close" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div class="library-body">
+        <div id="library-grid" class="library-grid"></div>
+        <aside id="library-detail" class="library-detail">
+          <div class="library-detail-empty">Hover an instrument for info</div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div id="audio-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel modal-panel-small">
+      <header class="modal-header">
+        <h2>Audio settings</h2>
+        <button class="modal-close" data-close-modal="audio-modal" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div id="audio-warning" class="audio-warning" hidden></div>
+        <label class="form-row">driver
+          <select id="audio-device-type"></select>
+        </label>
+        <label class="form-row">device
+          <select id="audio-device"></select>
+        </label>
+        <label class="form-row">sample rate
+          <select id="audio-sample-rate"></select>
+        </label>
+        <label class="form-row">buffer size
+          <select id="audio-buffer-size"></select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="midi-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel modal-panel-small">
+      <header class="modal-header">
+        <h2>MIDI settings</h2>
+        <button class="modal-close" data-close-modal="midi-modal" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div class="form-row">
+          <span>inputs (multiple allowed)</span>
+          <div id="midi-input-list" class="checkbox-list"></div>
+        </div>
+        <label class="form-row">output
+          <select id="midi-output"><option value="">— off —</option></select>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div id="routing-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel modal-panel-small">
+      <header class="modal-header">
+        <h2>MIDI routing</h2>
+        <button class="modal-close" data-close-modal="routing-modal" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div class="form-row">
+          <span>inputs <em class="hint">(empty = all)</em></span>
+          <div id="routing-input-list" class="checkbox-list"></div>
+        </div>
+        <div class="form-row">
+          <span>channels <em class="hint">(none = all)</em></span>
+          <div id="routing-channels" class="channel-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tag-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-panel modal-panel-medium">
+      <header class="modal-header">
+        <h2>Tags</h2>
+        <button class="modal-close" data-close-modal="tag-modal" aria-label="close"><i data-lucide="x"></i></button>
+      </header>
+      <div id="tag-editor" class="tag-editor"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

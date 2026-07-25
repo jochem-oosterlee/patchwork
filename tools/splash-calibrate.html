@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Patchwork — Splash calibrator</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0e10;
+      --text: #e8e6df;
+      --text-dim: #8a8780;
+      --accent: #ffaa33;
+      --accent-glow: rgba(255, 170, 51, 0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #1a1c20; color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Stage where the two splashes overlap. Window-size of the real app. */
+    .stage {
+      position: relative;
+      width: 1000px; height: 760px;
+      margin: 24px auto;
+      background: var(--bg);
+      box-shadow: 0 0 0 1px #333;
+    }
+    .stage > .layer {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;        /* both layers add up so overlap reads as white */
+    }
+
+    /* --- TARGET: identical to the real app's CSS .splash --- */
+    .target { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; }
+    .target .logo {
+      width: 88px; height: 88px;
+      color: var(--accent);
+      filter: drop-shadow(0 0 18px var(--accent-glow));
+    }
+    .target .logo svg { width: 100%; height: 100%; stroke-width: 1.6; }
+    .target .title {
+      font-size: 13px; letter-spacing: 0.32em;
+      text-transform: lowercase; color: var(--text-dim);
+    }
+
+    /* --- CALIBRATING: parametric, driven by sliders. CSS vars hold the values. --- */
+    .cal {
+      display: flex; align-items: center; justify-content: flex-start; flex-direction: column;
+      padding-top: var(--cal-top, 290px);
+      gap: var(--cal-gap, 14px);
+    }
+    .cal .logo {
+      width:  var(--cal-icon, 88px);
+      height: var(--cal-icon, 88px);
+      color: var(--accent);
+    }
+    .cal .logo svg {
+      width: 100%; height: 100%;
+      stroke-width: var(--cal-stroke, 1.6);
+    }
+    .cal .title {
+      font-size: var(--cal-text, 13px);
+      letter-spacing: var(--cal-kern, 0.32em);
+      text-transform: lowercase;
+      color: var(--text-dim);
+    }
+
+    /* Tint the layers so overlap reads clearly. */
+    .layer.target { filter: hue-rotate(0deg)   saturate(1.2) brightness(1.0); opacity: 0.55; }
+    .layer.cal    { filter: hue-rotate(160deg) saturate(1.2) brightness(1.0); opacity: 0.55; }
+
+    .panel {
+      width: 1000px; margin: 0 auto 24px;
+      background: #111317; border: 1px solid #25282e; border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 12px;
+    }
+    .panel h2 { font-size: 10px; color: var(--text-dim); letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 14px; }
+    .row { display: grid; grid-template-columns: 200px 1fr 80px; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .row input[type=range] { width: 100%; }
+    .row .val { text-align: right; color: var(--accent); }
+    .legend { font-size: 10px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.6; }
+    .legend b.t { color: #ff6a6a; }
+    .legend b.c { color: #6aa8ff; }
+    pre {
+      margin-top: 14px;
+      background: #0a0b0d; border: 1px solid #25282e; border-radius: 4px;
+      padding: 10px; font-size: 11px; color: var(--accent);
+      white-space: pre-wrap; word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="layer target">
+      <div style="display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; position:absolute; inset:0;">
+        <div class="logo"><i data-lucide="cable"></i></div>
+        <div class="title">patchwork</div>
+      </div>
+    </div>
+    <div class="layer cal" id="cal">
+      <div class="logo"><i data-lucide="cable"></i></div>
+      <div class="title">patchwork</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Splash calibration</h2>
+    <div class="legend">
+      <b class="t">Target (red tint)</b> = current HTML splash. <b class="c">Calibrating (blue tint)</b> = adjustable copy.
+      Move the sliders until both icons + text overlap perfectly (white where they cross). Then copy the values into JUCE.
+    </div>
+
+    <div class="row">
+      <label>distance cable→top (px)</label>
+      <input id="s-top"  type="range" min="0" max="600" step="1" value="290">
+      <div class="val"><span id="v-top">290</span> px</div>
+    </div>
+    <div class="row">
+      <label>cable size (px)</label>
+      <input id="s-icon" type="range" min="40" max="240" step="1" value="88">
+      <div class="val"><span id="v-icon">88</span> px</div>
+    </div>
+    <div class="row">
+      <label>cable stroke width</label>
+      <input id="s-stroke" type="range" min="0.5" max="4" step="0.1" value="1.6">
+      <div class="val"><span id="v-stroke">1.6</span></div>
+    </div>
+    <div class="row">
+      <label>gap cable→text (px)</label>
+      <input id="s-gap"  type="range" min="0" max="60" step="1" value="14">
+      <div class="val"><span id="v-gap">14</span> px</div>
+    </div>
+    <div class="row">
+      <label>text size (px)</label>
+      <input id="s-text" type="range" min="8" max="30" step="0.5" value="13">
+      <div class="val"><span id="v-text">13</span> px</div>
+    </div>
+    <pre id="out"></pre>
+  </div>
+
+  <script>
+    const cal = document.getElementById('cal');
+    const fields = [
+      ['top',    '--cal-top',    'px'],
+      ['icon',   '--cal-icon',   'px'],
+      ['stroke', '--cal-stroke', ''],
+      ['gap',    '--cal-gap',    'px'],
+      ['text',   '--cal-text',   'px'],
+    ];
+    const out = document.getElementById('out');
+
+    function update() {
+      const vals = {};
+      fields.forEach(([k, css, unit]) => {
+        const v = document.getElementById('s-' + k).value;
+        document.getElementById('v-' + k).textContent = v;
+        cal.style.setProperty(css, v + unit);
+        vals[k] = v;
+      });
+      out.textContent =
+`// Copy these into engine/Main.cpp splash drawing:
+constexpr int   iconSize     = ${vals.icon};
+constexpr int   topOffset    = ${vals.top};   // top of icon from canvas top
+constexpr float strokeWidth  = ${vals.stroke}f;
+constexpr int   gapBelowIcon = ${vals.gap};
+constexpr float textPx       = ${vals.text}f;
+`;
+    }
+
+    fields.forEach(([k]) => document.getElementById('s-' + k).addEventListener('input', update));
+    update();
+    if (window.lucide) lucide.createIcons();
+  </script>
+</body>
+</html>
