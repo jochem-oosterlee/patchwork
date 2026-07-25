@@ -928,7 +928,7 @@ private:
                 ack->setProperty ("engine",  "midi-host");
                 ack->setProperty ("version", 1);
                 ws.broadcast (juce::var (ack.get()));
-                juce::MessageManager::callAsync ([this] { broadcastState(); });
+                juce::MessageManager::callAsync ([this] { broadcastState(); broadcastCpState(); });
             }
             return;
         }
@@ -964,6 +964,25 @@ private:
             pendingClick.store ((bool) v.getProperty ("accent", false) ? 2 : 1);
             return;
         }
+        else if (cmd == "cp_set_vst")
+        {
+            const int  channel = (int) v.getProperty ("channel", 1);
+            const auto path    = v.getProperty ("path", "").toString();
+            const auto name    = v.getProperty ("name", "").toString();
+            juce::MessageManager::callAsync ([this, channel, path, name] { cpSetVst (channel, juce::File (path), name); });
+            return;
+        }
+        else if (cmd == "cp_clear_vst")
+        {
+            const int channel = (int) v.getProperty ("channel", 1);
+            juce::MessageManager::callAsync ([this, channel] { cpClearVst (channel); });
+            return;
+        }
+        else if (cmd == "list_cp_vsts")
+        {
+            juce::MessageManager::callAsync ([this] { broadcastCpState(); });
+            return;
+        }
         else if (cmd == "route_channel")
         {
             // chord-pad routing: map a track channel to a plugin by managing a
@@ -996,6 +1015,39 @@ private:
                             if (on) { if (! pr.sourceIds.contains (srcId)) pr.sourceIds.add (srcId); }
                             else    { pr.sourceIds.removeString (srcId); sendPanic (pr.id); }
                         }
+                settings.save();
+                broadcastState();
+            });
+            return;
+        }
+        else if (cmd == "set_channel_target")
+        {
+            // Exclusive routing: a track channel plays exactly one plugin (or
+            // none). Ensures the per-channel chord-pad source, then assigns it
+            // to only the target preset. Powers chord-pad's per-track VST picker.
+            const int  channel  = juce::jlimit (1, 16, (int) v.getProperty ("channel", 1));
+            const auto presetId = v.getProperty ("presetId", "").toString();   // empty = none
+            juce::MessageManager::callAsync ([this, channel, presetId]
+            {
+                pushUndo();
+                const juce::uint16 mask = (juce::uint16) (1u << (channel - 1));
+                juce::String srcId;
+                for (auto& s : settings.sources)
+                    if (s.deviceName == MidiManager::kChordPadInput && s.channelMask == mask) { srcId = s.id; break; }
+                if (srcId.isEmpty())
+                {
+                    Source s;
+                    s.id = juce::Uuid().toString(); s.deviceName = MidiManager::kChordPadInput;
+                    s.label = "chord-pad ch" + juce::String (channel); s.icon = "music"; s.channelMask = mask;
+                    srcId = s.id; settings.sources.push_back (std::move (s));
+                }
+                for (auto& set : settings.sets)
+                    for (auto& pr : set.presets)
+                    {
+                        const bool had = pr.sourceIds.contains (srcId);
+                        if (pr.id == presetId) { if (! had) pr.sourceIds.add (srcId); }
+                        else if (had)          { pr.sourceIds.removeString (srcId); sendPanic (pr.id); }
+                    }
                 settings.save();
                 broadcastState();
             });
@@ -1146,12 +1198,10 @@ private:
         }
         else if (cmd == "note")
         {
-            // chord-pad note over the link (alternative to loopMIDI). The note
-            // carries its track channel (1-16). If the user has built any
-            // "chord-pad" source, we route through the normal source filter so
-            // different tracks (channels) can target different plugins — exactly
-            // like loopMIDI. Until then we fall back to broadcasting to every
-            // live plugin so it just sounds out of the box.
+            // chord-pad note over the link. The note carries its track channel
+            // (1-16). Primary model: each channel plays chord-pad's own always-on
+            // VST (cp-ch{n}). If none is set for the channel, fall back to any
+            // live Patchwork plugin so it still sounds.
             const int  note = juce::jlimit (0, 127, (int) v.getProperty ("note", 60));
             const int  vel  = juce::jlimit (0, 127, (int) v.getProperty ("vel",  100));
             const bool on   = (bool) v.getProperty ("on", true);
@@ -1159,17 +1209,14 @@ private:
             auto m = (on && vel > 0) ? juce::MidiMessage::noteOn  (ch, note, (juce::uint8) vel)
                                      : juce::MidiMessage::noteOff (ch, note);
 
-            bool hasChordPadSource = false;
-            for (auto& s : settings.sources)
-                if (s.deviceName == MidiManager::kChordPadInput) { hasChordPadSource = true; break; }
-
-            if (hasChordPadSource)
+            const auto cpId = cpVstId (ch);
+            if (plugin.has (cpId))
             {
-                onMidi (MidiManager::kChordPadInput, m);   // filtered, per-channel routing
+                plugin.queueMidi (cpId, m);                // chord-pad's own VST for this channel
             }
             else
             {
-                for (auto& p : settings.currentPresets())
+                for (auto& p : settings.currentPresets())  // fallback: any live plugin
                     if (plugin.has (p.id))
                         plugin.queueMidi (p.id, m);
             }
@@ -2113,6 +2160,50 @@ private:
         return nullptr;
     }
 
+    // ---- chord-pad VST hosting (per channel, always active) --------------
+    static juce::String cpVstId (int channel) { return "cp-ch" + juce::String (channel); }
+
+    void cpSetVst (int channel, const juce::File& file, const juce::String& name)
+    {
+        channel = juce::jlimit (1, 16, channel);
+        const auto id = cpVstId (channel);
+        plugin.unload (id);
+        if (! file.exists()) { cpVsts[(size_t) channel] = {}; broadcastCpState(); return; }
+        cpVsts[(size_t) channel] = { file.getFullPathName(), name };
+        plugin.load (id, file, [this, id, channel] (const juce::String&, const juce::String& err)
+        {
+            if (err.isNotEmpty()) logToUi ("chord-pad VST ch" + juce::String (channel) + " load failed: " + err);
+            broadcastCpState();
+        });
+        broadcastCpState();
+    }
+
+    void cpClearVst (int channel)
+    {
+        channel = juce::jlimit (1, 16, channel);
+        plugin.unload (cpVstId (channel));
+        cpVsts[(size_t) channel] = {};
+        broadcastCpState();
+    }
+
+    void broadcastCpState()
+    {
+        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+        obj->setProperty ("event", "cp_state");
+        juce::DynamicObject::Ptr chans = new juce::DynamicObject();
+        for (int ch = 1; ch <= 16; ++ch)
+            if (cpVsts[(size_t) ch].path.isNotEmpty())
+            {
+                juce::DynamicObject::Ptr c = new juce::DynamicObject();
+                c->setProperty ("name",   cpVsts[(size_t) ch].name);
+                c->setProperty ("path",   cpVsts[(size_t) ch].path);
+                c->setProperty ("loaded", plugin.has (cpVstId (ch)));
+                chans->setProperty (juce::String (ch), juce::var (c.get()));
+            }
+        obj->setProperty ("channels", juce::var (chans.get()));
+        ws.broadcast (juce::var (obj.get()));
+    }
+
     void loadPluginForPreset (const juce::String& presetId, const juce::File& file,
                               std::function<void()> onLoaded = {})
     {
@@ -2188,6 +2279,12 @@ private:
     // 2 accent. Fires regardless of transport state so the pre-count is audible
     // out the interface before playback starts.
     std::atomic<int> pendingClick { 0 };
+
+    // chord-pad's own VST hosting: one always-on plugin per channel (1-16),
+    // hosted in PluginHost under instance id "cp-ch{n}", independent of
+    // Patchwork's presets/sets/pins. Each track picks one; it stays loaded.
+    struct CpVst { juce::String path, name; };
+    std::array<CpVst, 17> cpVsts;   // index 1..16 (0 unused)
     juce::StringArray loggedClockBlocked;
 
     std::atomic<bool> bypassPlugin { false };
