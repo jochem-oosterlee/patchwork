@@ -491,6 +491,7 @@ public:
         plugin.playHead.tsDen.store (settings.tsDenominator);
         bypassPlugin.store (true);
         loadPinnedForCurrentSet();
+        cpLoadPersisted();            // chord-pad's per-track VSTs
         broadcastState();
     }
 
@@ -2174,9 +2175,15 @@ private:
         channel = juce::jlimit (1, 16, channel);
         const auto id = cpVstId (channel);
         plugin.unload (id);
-        if (! file.exists()) { cpVsts[(size_t) channel] = {}; broadcastCpState(); return; }
-        cpVsts[(size_t) channel] = { file.getFullPathName(), name };
-        plugin.load (id, file, [this, id, channel] (const juce::String&, const juce::String& err)
+        if (! file.exists())
+        {
+            settings.cpVstPath[channel] = {}; settings.cpVstName[channel] = {};
+            settings.save(); broadcastCpState(); return;
+        }
+        settings.cpVstPath[channel] = file.getFullPathName();
+        settings.cpVstName[channel] = name;
+        settings.save();
+        plugin.load (id, file, [this, channel] (const juce::String&, const juce::String& err)
         {
             if (err.isNotEmpty()) logToUi ("chord-pad VST ch" + juce::String (channel) + " load failed: " + err);
             broadcastCpState();
@@ -2188,8 +2195,20 @@ private:
     {
         channel = juce::jlimit (1, 16, channel);
         plugin.unload (cpVstId (channel));
-        cpVsts[(size_t) channel] = {};
+        settings.cpVstPath[channel] = {}; settings.cpVstName[channel] = {};
+        settings.save();
         broadcastCpState();
+    }
+
+    // Load the persisted chord-pad VSTs (called on startup).
+    void cpLoadPersisted()
+    {
+        for (int ch = 1; ch <= 16; ++ch)
+        {
+            juce::File f (settings.cpVstPath[ch]);
+            if (settings.cpVstPath[ch].isNotEmpty() && f.exists())
+                plugin.load (cpVstId (ch), f, [this] (const juce::String&, const juce::String&) { broadcastCpState(); });
+        }
     }
 
     void broadcastCpState()
@@ -2198,11 +2217,11 @@ private:
         obj->setProperty ("event", "cp_state");
         juce::DynamicObject::Ptr chans = new juce::DynamicObject();
         for (int ch = 1; ch <= 16; ++ch)
-            if (cpVsts[(size_t) ch].path.isNotEmpty())
+            if (settings.cpVstPath[ch].isNotEmpty())
             {
                 juce::DynamicObject::Ptr c = new juce::DynamicObject();
-                c->setProperty ("name",   cpVsts[(size_t) ch].name);
-                c->setProperty ("path",   cpVsts[(size_t) ch].path);
+                c->setProperty ("name",   settings.cpVstName[ch]);
+                c->setProperty ("path",   settings.cpVstPath[ch]);
                 c->setProperty ("loaded", plugin.has (cpVstId (ch)));
                 chans->setProperty (juce::String (ch), juce::var (c.get()));
             }
@@ -2288,9 +2307,8 @@ private:
 
     // chord-pad's own VST hosting: one always-on plugin per channel (1-16),
     // hosted in PluginHost under instance id "cp-ch{n}", independent of
-    // Patchwork's presets/sets/pins. Each track picks one; it stays loaded.
-    struct CpVst { juce::String path, name; };
-    std::array<CpVst, 17> cpVsts;   // index 1..16 (0 unused)
+    // Patchwork's presets/sets/pins. The per-channel path/name persist in
+    // Settings (settings.cpVstPath/cpVstName).
     juce::StringArray loggedClockBlocked;
 
     std::atomic<bool> bypassPlugin { false };

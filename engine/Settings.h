@@ -61,6 +61,10 @@ public:
     juce::String           kbOut;
     juce::String           pluginPath;
     juce::String           chordPadDir;      // optional override for the chord-pad web-app folder to serve
+    // chord-pad's per-channel VSTs (index 1..16) — one always-on plugin per
+    // track, persisted so they survive restarts and travel in projects.
+    juce::String           cpVstPath[17];
+    juce::String           cpVstName[17];
     std::vector<Patchset>  sets;
     int                    currentSet = 0;
 
@@ -149,6 +153,17 @@ public:
         kbOut      = v.getProperty ("kbOut",      "").toString();
         pluginPath = v.getProperty ("pluginPath", "").toString();
         chordPadDir = v.getProperty ("chordPadDir", "").toString();
+        for (int ch = 0; ch <= 16; ++ch) { cpVstPath[ch] = {}; cpVstName[ch] = {}; }
+        if (auto* cp = v.getProperty ("cpVsts", juce::var()).getDynamicObject())
+            for (int ch = 1; ch <= 16; ++ch)
+            {
+                auto c = cp->getProperty (juce::String (ch));
+                if (c.isObject())
+                {
+                    cpVstPath[ch] = c.getProperty ("path", "").toString();
+                    cpVstName[ch] = c.getProperty ("name", "").toString();
+                }
+            }
         sets.clear();
         currentSet = (int) v.getProperty ("currentSet", 0);
 
@@ -245,6 +260,19 @@ public:
         obj->setProperty ("thruSourceIds",   thruSid);
         obj->setProperty ("kbOut",      kbOut);
         obj->setProperty ("pluginPath", pluginPath);
+        obj->setProperty ("chordPadDir", chordPadDir);
+        {
+            juce::DynamicObject::Ptr cp = new juce::DynamicObject();
+            for (int ch = 1; ch <= 16; ++ch)
+                if (cpVstPath[ch].isNotEmpty())
+                {
+                    juce::DynamicObject::Ptr c = new juce::DynamicObject();
+                    c->setProperty ("path", cpVstPath[ch]);
+                    c->setProperty ("name", cpVstName[ch]);
+                    cp->setProperty (juce::String (ch), juce::var (c.get()));
+                }
+            obj->setProperty ("cpVsts", juce::var (cp.get()));
+        }
         obj->setProperty ("currentSet", currentSet);
 
         juce::Array<juce::var> setArr;
