@@ -147,6 +147,38 @@ public:
     }
 };
 
+// Flat "segmented control" look for the view tabs: no default button outline,
+// a clean filled pill for the active tab, a subtle wash on hover. Keeps the
+// two tabs reading as one control that matches the rest of the flat UI.
+struct TabLookAndFeel : juce::LookAndFeel_V4
+{
+    void drawButtonBackground (juce::Graphics& g, juce::Button& b,
+                               const juce::Colour&, bool over, bool down) override
+    {
+        auto r = b.getLocalBounds().toFloat().reduced (2.0f, 3.0f);
+        if (b.getToggleState())
+        {
+            g.setColour (juce::Colour (0xff2c313a));
+            g.fillRoundedRectangle (r, 6.0f);
+            g.setColour (juce::Colour (0x16ffffff));
+            g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, 1.0f);
+        }
+        else if (over || down)
+        {
+            g.setColour (juce::Colour (down ? 0x14ffffff : 0x0affffff));
+            g.fillRoundedRectangle (r, 6.0f);
+        }
+    }
+    void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool) override
+    {
+        const bool on = b.getToggleState();
+        g.setColour (b.findColour (on ? juce::TextButton::textColourOnId
+                                      : juce::TextButton::textColourOffId));
+        g.setFont (juce::Font (12.5f, on ? juce::Font::bold : juce::Font::plain));
+        g.drawText (b.getButtonText(), b.getLocalBounds(), juce::Justification::centred, false);
+    }
+};
+
 // Custom in-style title bar for the borderless window: app name, view tabs,
 // and minimise / maximise / close. Dragging the empty caption hands off to the
 // native move loop (WM_NCLBUTTONDOWN) so Windows drag + Aero Snap work; the
@@ -155,22 +187,18 @@ class TitleBar : public juce::Component
 {
 public:
     std::function<void (int)> onTab;
-    std::function<void ()>    onTransport;   // play/stop toggle → drives chord-pad
     juce::TextButton tabPatchwork { "Patchwork" }, tabChordPad { "chord-pad" };
 
     TitleBar()
     {
         setInterceptsMouseClicks (true, true);
-        addAndMakeVisible (playBtn);
-        playBtn.onClick = [this] { if (onTransport) onTransport(); };
         for (auto* t : { &tabPatchwork, &tabChordPad })
         {
             t->setClickingTogglesState (true);
             t->setRadioGroupId (100);
-            t->setColour (juce::TextButton::buttonColourId,   juce::Colour (0x00000000));
-            t->setColour (juce::TextButton::buttonOnColourId, juce::Colour (0xff23262c));
-            t->setColour (juce::TextButton::textColourOffId,  juce::Colour (0xff8a8f98));
-            t->setColour (juce::TextButton::textColourOnId,   juce::Colour (0xffffffff));
+            t->setLookAndFeel (&tabLnf);
+            t->setColour (juce::TextButton::textColourOffId, juce::Colour (0xff868c96));
+            t->setColour (juce::TextButton::textColourOnId,  juce::Colour (0xffffffff));
             addChildComponent (*t);
         }
         tabPatchwork.onClick = [this] { if (onTab) onTab (0); };
@@ -180,6 +208,11 @@ public:
         minBtn.onClick   = [this] { nativeMinimise(); };
         maxBtn.onClick   = [this] { toggleMaximise(); };
         closeBtn.onClick = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
+    }
+
+    ~TitleBar() override
+    {
+        for (auto* t : { &tabPatchwork, &tabChordPad }) t->setLookAndFeel (nullptr);
     }
 
     void setTabsVisible (bool v) { tabsShown = v; tabPatchwork.setVisible (v); tabChordPad.setVisible (v); resized(); }
@@ -194,7 +227,6 @@ public:
     {
         if (text == statusText && playing == statusPlaying) return;
         statusText = std::move (text); statusPlaying = playing;
-        playBtn.playing = playing; playBtn.repaint();
         repaint();
     }
 
@@ -206,6 +238,17 @@ public:
         g.setColour (juce::Colour (0xffc3c9d1));
         g.setFont (juce::Font (13.0f, juce::Font::bold));
         g.drawText ("Patchwork", 12, 0, 110, getHeight(), juce::Justification::centredLeft);
+
+        // Segmented-control tray behind the two view tabs.
+        if (tabsShown)
+        {
+            auto seg = tabPatchwork.getBounds().getUnion (tabChordPad.getBounds())
+                          .toFloat().expanded (3.0f, 2.0f);
+            g.setColour (juce::Colour (0xff191c21));
+            g.fillRoundedRectangle (seg, 8.0f);
+            g.setColour (juce::Colour (0x12ffffff));
+            g.drawRoundedRectangle (seg.reduced (0.5f), 8.0f, 1.0f);
+        }
 
         // Shared engine status (bar.beat + tempo) with a play/stop dot, drawn
         // just left of the window buttons — visible on both tabs.
@@ -228,13 +271,12 @@ public:
         closeBtn.setBounds (r.removeFromRight (bw));
         maxBtn  .setBounds (r.removeFromRight (bw));
         minBtn  .setBounds (r.removeFromRight (bw));
-        playBtn.setBounds (getWidth() / 2 - 14, (getHeight() - 28) / 2, 28, 28);
         if (tabsShown)
         {
-            auto tabs = r.withTrimmedLeft (100).reduced (0, 5);
-            tabPatchwork.setBounds (tabs.removeFromLeft (118));
-            tabs.removeFromLeft (4);
-            tabChordPad.setBounds (tabs.removeFromLeft (118));
+            auto tabs = r.withTrimmedLeft (100).reduced (0, 6);
+            tabPatchwork.setBounds (tabs.removeFromLeft (104));
+            tabs.removeFromLeft (2);
+            tabChordPad.setBounds (tabs.removeFromLeft (104));
         }
     }
 
@@ -253,7 +295,7 @@ public:
 
 private:
     WinButton minBtn { WinButton::Minimise }, maxBtn { WinButton::Maximise }, closeBtn { WinButton::Close };
-    PlayButton playBtn;
+    TabLookAndFeel tabLnf;
     bool tabsShown = false, maximised = false;
     juce::Rectangle<int> restoreBounds;
     juce::String statusText;
@@ -354,15 +396,6 @@ public:
         // Custom in-style title bar (the window is borderless): app name, view
         // tabs, and window buttons. Handles drag + Aero Snap natively.
         titleBar.onTab = [this] (int t) { showTab (t); };
-        titleBar.onTransport = [this]
-        {
-            // Play/stop from the title bar → ask chord-pad (the sequencer) to
-            // toggle; it drives our play-head back over the link.
-            juce::DynamicObject::Ptr o = new juce::DynamicObject();
-            o->setProperty ("event",  "transport_request");
-            o->setProperty ("action", "toggle");
-            ws.broadcast (juce::var (o.get()));
-        };
         addAndMakeVisible (titleBar);
 
         // Embed chord-pad as a second view in the same window (one app). Only
