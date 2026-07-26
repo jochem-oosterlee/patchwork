@@ -65,6 +65,7 @@ public:
     // track, persisted so they survive restarts and travel in projects.
     juce::String           cpVstPath[17];
     juce::String           cpVstName[17];
+    juce::String           cpVstState[17];   // base64 plugin state (incl. selected preset)
     std::vector<Patchset>  sets;
     int                    currentSet = 0;
 
@@ -153,15 +154,16 @@ public:
         kbOut      = v.getProperty ("kbOut",      "").toString();
         pluginPath = v.getProperty ("pluginPath", "").toString();
         chordPadDir = v.getProperty ("chordPadDir", "").toString();
-        for (int ch = 0; ch <= 16; ++ch) { cpVstPath[ch] = {}; cpVstName[ch] = {}; }
+        for (int ch = 0; ch <= 16; ++ch) { cpVstPath[ch] = {}; cpVstName[ch] = {}; cpVstState[ch] = {}; }
         if (auto* cp = v.getProperty ("cpVsts", juce::var()).getDynamicObject())
             for (int ch = 1; ch <= 16; ++ch)
             {
                 auto c = cp->getProperty (juce::String (ch));
                 if (c.isObject())
                 {
-                    cpVstPath[ch] = c.getProperty ("path", "").toString();
-                    cpVstName[ch] = c.getProperty ("name", "").toString();
+                    cpVstPath[ch]  = c.getProperty ("path",  "").toString();
+                    cpVstName[ch]  = c.getProperty ("name",  "").toString();
+                    cpVstState[ch] = c.getProperty ("state", "").toString();
                 }
             }
         sets.clear();
@@ -267,8 +269,9 @@ public:
                 if (cpVstPath[ch].isNotEmpty())
                 {
                     juce::DynamicObject::Ptr c = new juce::DynamicObject();
-                    c->setProperty ("path", cpVstPath[ch]);
-                    c->setProperty ("name", cpVstName[ch]);
+                    c->setProperty ("path",  cpVstPath[ch]);
+                    c->setProperty ("name",  cpVstName[ch]);
+                    c->setProperty ("state", cpVstState[ch]);
                     cp->setProperty (juce::String (ch), juce::var (c.get()));
                 }
             obj->setProperty ("cpVsts", juce::var (cp.get()));

@@ -510,6 +510,7 @@ public:
                 auto f = fc.getResult();
                 if (f == juce::File()) return;
                 if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("pwproj");
+                cpCaptureStates();                  // latest chord-pad VST preset states
                 settings.save();                    // flush current rack/routing to settings.json
                 pendingSaveFile = f;
                 juce::DynamicObject::Ptr req = new juce::DynamicObject();
@@ -823,6 +824,14 @@ private:
             }
             s << juce::String (juce::roundToInt (bpm)) << " BPM";
             titleBar.setStatus (s, playing);
+        }
+
+        // Periodically snapshot chord-pad VST states (preset choices) so they
+        // persist. Only saves when something actually changed.
+        if (++cpStateCaptureCounter >= 90)   // ~3s at 30Hz
+        {
+            cpStateCaptureCounter = 0;
+            if (cpCaptureStates()) settings.save();
         }
 
         // Re-scan available MIDI devices every couple of seconds. If the set
@@ -2200,15 +2209,37 @@ private:
         broadcastCpState();
     }
 
-    // Load the persisted chord-pad VSTs (called on startup).
+    // Load the persisted chord-pad VSTs (called on startup), restoring each
+    // plugin's saved state (which includes the selected preset).
     void cpLoadPersisted()
     {
         for (int ch = 1; ch <= 16; ++ch)
         {
             juce::File f (settings.cpVstPath[ch]);
             if (settings.cpVstPath[ch].isNotEmpty() && f.exists())
-                plugin.load (cpVstId (ch), f, [this] (const juce::String&, const juce::String&) { broadcastCpState(); });
+            {
+                const juce::String st = settings.cpVstState[ch];
+                plugin.load (cpVstId (ch), f, [this, ch, st] (const juce::String&, const juce::String& err)
+                {
+                    if (err.isEmpty() && st.isNotEmpty()) plugin.applyStateBase64 (cpVstId (ch), st);
+                    broadcastCpState();
+                });
+            }
         }
+    }
+
+    // Snapshot each loaded chord-pad VST's state (preset etc.) into settings.
+    // Returns true if anything changed since last time.
+    bool cpCaptureStates()
+    {
+        bool changed = false;
+        for (int ch = 1; ch <= 16; ++ch)
+            if (settings.cpVstPath[ch].isNotEmpty() && plugin.has (cpVstId (ch)))
+            {
+                auto s = plugin.getStateBase64 (cpVstId (ch));
+                if (s.isNotEmpty() && s != settings.cpVstState[ch]) { settings.cpVstState[ch] = s; changed = true; }
+            }
+        return changed;
     }
 
     void broadcastCpState()
@@ -2304,6 +2335,7 @@ private:
     // 2 accent. Fires regardless of transport state so the pre-count is audible
     // out the interface before playback starts.
     std::atomic<int> pendingClick { 0 };
+    int cpStateCaptureCounter = 0;   // throttles chord-pad VST state snapshots
 
     // chord-pad's own VST hosting: one always-on plugin per channel (1-16),
     // hosted in PluginHost under instance id "cp-ch{n}", independent of
