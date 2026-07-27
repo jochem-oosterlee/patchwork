@@ -235,10 +235,6 @@ public:
         g.fillAll (juce::Colour (0xff141619));
         g.setColour (juce::Colour (0x18ffffff));
         g.fillRect (0, getHeight() - 1, getWidth(), 1);
-        g.setColour (juce::Colour (0xffc3c9d1));
-        g.setFont (juce::Font (13.0f, juce::Font::bold));
-        g.drawText ("Patchwork", 12, 0, 110, getHeight(), juce::Justification::centredLeft);
-
         // Segmented-control tray behind the two view tabs.
         if (tabsShown)
         {
@@ -273,7 +269,7 @@ public:
         minBtn  .setBounds (r.removeFromRight (bw));
         if (tabsShown)
         {
-            auto tabs = r.withTrimmedLeft (100).reduced (0, 6);
+            auto tabs = r.withTrimmedLeft (12).reduced (0, 6);
             tabPatchwork.setBounds (tabs.removeFromLeft (104));
             tabs.removeFromLeft (2);
             tabChordPad.setBounds (tabs.removeFromLeft (104));
