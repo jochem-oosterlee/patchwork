@@ -60,12 +60,7 @@ public:
     juce::StringArray      thruSourceIds;    // empty = uses default (or silent)
     juce::String           kbOut;
     juce::String           pluginPath;
-    juce::String           chordPadDir;      // optional override for the chord-pad web-app folder to serve
-    // chord-pad's per-channel VSTs (index 1..16) — one always-on plugin per
-    // track, persisted so they survive restarts and travel in projects.
-    juce::String           cpVstPath[17];
-    juce::String           cpVstName[17];
-    juce::String           cpVstState[17];   // base64 plugin state (incl. selected preset)
+    juce::String           chordPadDir;      // optional override for the compose web-app folder to serve
     std::vector<Patchset>  sets;
     int                    currentSet = 0;
 
@@ -92,6 +87,13 @@ public:
                        .getChildFile ("MidiHost");
         dir.createDirectory();
         return dir.getChildFile ("settings.json");
+    }
+
+    // The compose view's project (tracks, clips, chord items …) as the UI
+    // autosaves it. The engine owns the file; the UI gets it back on connect.
+    static juce::File composeFile()
+    {
+        return file().getSiblingFile ("compose.json");
     }
 
     void load()
@@ -154,18 +156,6 @@ public:
         kbOut      = v.getProperty ("kbOut",      "").toString();
         pluginPath = v.getProperty ("pluginPath", "").toString();
         chordPadDir = v.getProperty ("chordPadDir", "").toString();
-        for (int ch = 0; ch <= 16; ++ch) { cpVstPath[ch] = {}; cpVstName[ch] = {}; cpVstState[ch] = {}; }
-        if (auto* cp = v.getProperty ("cpVsts", juce::var()).getDynamicObject())
-            for (int ch = 1; ch <= 16; ++ch)
-            {
-                auto c = cp->getProperty (juce::String (ch));
-                if (c.isObject())
-                {
-                    cpVstPath[ch]  = c.getProperty ("path",  "").toString();
-                    cpVstName[ch]  = c.getProperty ("name",  "").toString();
-                    cpVstState[ch] = c.getProperty ("state", "").toString();
-                }
-            }
         sets.clear();
         currentSet = (int) v.getProperty ("currentSet", 0);
 
@@ -263,19 +253,6 @@ public:
         obj->setProperty ("kbOut",      kbOut);
         obj->setProperty ("pluginPath", pluginPath);
         obj->setProperty ("chordPadDir", chordPadDir);
-        {
-            juce::DynamicObject::Ptr cp = new juce::DynamicObject();
-            for (int ch = 1; ch <= 16; ++ch)
-                if (cpVstPath[ch].isNotEmpty())
-                {
-                    juce::DynamicObject::Ptr c = new juce::DynamicObject();
-                    c->setProperty ("path",  cpVstPath[ch]);
-                    c->setProperty ("name",  cpVstName[ch]);
-                    c->setProperty ("state", cpVstState[ch]);
-                    cp->setProperty (juce::String (ch), juce::var (c.get()));
-                }
-            obj->setProperty ("cpVsts", juce::var (cp.get()));
-        }
         obj->setProperty ("currentSet", currentSet);
 
         juce::Array<juce::var> setArr;

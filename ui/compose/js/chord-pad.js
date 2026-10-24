@@ -2803,10 +2803,40 @@ function openTrackFxModal(track) {
   outRow.innerHTML = `
     <label class="track-fx-label">Output</label>
     <div class="track-fx-output-toggle">
-      <button class="track-fx-out-btn${track.output !== 'midi' ? ' active' : ''}" data-out="instrument">Instrument</button>
+      <button class="track-fx-out-btn${(track.output !== 'midi' && track.output !== 'engine') ? ' active' : ''}" data-out="instrument">Instrument</button>
+      <button class="track-fx-out-btn${track.output === 'engine' ? ' active' : ''}" data-out="engine">Engine</button>
       <button class="track-fx-out-btn${track.output === 'midi' ? ' active' : ''}" data-out="midi">MIDI</button>
     </div>
   `;
+  // Engine instrument — a Patchwork preset this track plays when the engine
+  // link is up. Empty = the pad instrument chosen in the link badge.
+  const engRow = document.createElement('div');
+  engRow.className = 'track-fx-row track-fx-row-select track-fx-engine-row';
+  if (track.output !== 'engine') engRow.classList.add('hidden');
+  const engPresets = (typeof LINK !== 'undefined' && Array.isArray(LINK.presets)) ? LINK.presets : [];
+  engRow.innerHTML = `
+    <label class="track-fx-label">Instrument</label>
+    <select class="track-fx-select track-fx-port-select" style="flex:1; width:100%">
+      <option value="">— pad instrument —</option>
+      ${engPresets.map(p => `<option value="${escapeHtml(p.id)}"${p.id === (track.engineTarget || '') ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
+    </select>
+    <label class="track-fx-ch-inline">
+      <span>Ch</span>
+      <input type="text" inputmode="numeric" pattern="[0-9]*" class="track-fx-ch-input" maxlength="2" value="${track.channel + 1}">
+    </label>
+  `;
+  engRow.querySelector('select').addEventListener('change', (e) => {
+    seqCheckpoint();
+    track.engineTarget = e.target.value;
+    seqSave();
+  });
+  engRow.querySelector('.track-fx-ch-input')?.addEventListener('change', (e) => {
+    seqCheckpoint();
+    const v = Math.max(1, Math.min(16, parseInt(e.target.value, 10) || 1));
+    e.target.value = v;
+    track.channel = v - 1;
+    seqSave();
+  });
   // MIDI output port selector — second row under Output when MIDI mode.
   const portRow = document.createElement('div');
   portRow.className = 'track-fx-row track-fx-row-select track-fx-port-row';
@@ -2869,14 +2899,15 @@ function openTrackFxModal(track) {
     });
   });
   body.appendChild(outRow);
+  body.appendChild(engRow);
   body.appendChild(portRow);
   body.appendChild(inRow);
 
-  // ADSR graph is only meaningful for the in-app synth; hide for MIDI output.
+  // ADSR graph is only meaningful for the in-app synth; hide for MIDI/engine output.
   const adsrEl = document.getElementById('track-fx-adsr');
-  if (adsrEl) adsrEl.classList.toggle('hidden', track.output === 'midi');
+  if (adsrEl) adsrEl.classList.toggle('hidden', track.output === 'midi' || track.output === 'engine');
 
-  if (track.output === 'midi') {
+  if (track.output === 'midi' || track.output === 'engine') {
     refreshLucide();
     return;
   }

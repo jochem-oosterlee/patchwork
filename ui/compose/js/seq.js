@@ -127,8 +127,10 @@ function makeTrack(opts = {}) {
     name:       opts.name || (opts.kind === 'chord' ? 'Chords' : 'Free'),
     instrument: opts.instrument ?? 'epiano',
     channel:    opts.channel ?? 0,
-    // 'instrument' = play in-app via SF2/synth; 'midi' = send to MIDI output.
-    output:     opts.output === 'midi' ? 'midi' : 'instrument',
+    // 'instrument' = play in-app via SF2/synth; 'midi' = send to MIDI output;
+    // 'engine' = play a Patchwork instrument (engineTarget = its preset id).
+    output:     (opts.output === 'midi' || opts.output === 'engine') ? opts.output : 'instrument',
+    engineTarget: opts.engineTarget || '',
     // MIDI output port id (Web MIDI device id). Empty = use global default.
     midiPortId:   opts.midiPortId   || '',
     // MIDI input port id — when set, incoming notes on that port (matching
@@ -212,7 +214,7 @@ function seqSnapshot() {
   return JSON.stringify({
     tracksList: SEQ.tracksList.map(t => ({
       id: t.id, kind: t.kind, name: t.name,
-      instrument: t.instrument, channel: t.channel, volume: t.volume, output: t.output, midiPortId: t.midiPortId, midiInPortId: t.midiInPortId,
+      instrument: t.instrument, channel: t.channel, volume: t.volume, output: t.output, engineTarget: t.engineTarget, midiPortId: t.midiPortId, midiInPortId: t.midiInPortId,
       muted: t.muted, soloed: t.soloed, synth: t.synth,
       items: t.items,
     })),
@@ -235,7 +237,7 @@ function seqApplySnapshot(json) {
       for (const tIn of d.tracksList) {
         SEQ.tracksList.push(makeTrack({
           id: tIn.id, kind: tIn.kind || 'free', name: tIn.name,
-          instrument: tIn.instrument, channel: tIn.channel, volume: tIn.volume, output: tIn.output, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
+          instrument: tIn.instrument, channel: tIn.channel, volume: tIn.volume, output: tIn.output, engineTarget: tIn.engineTarget, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
           muted: tIn.muted, soloed: tIn.soloed, synth: tIn.synth,
           items: tIn.items || [],
         }));
@@ -1520,7 +1522,7 @@ function seqImportProject(d) {
       SEQ.tracksList.push(makeTrack({
         id: tIn.id, kind: tIn.kind || 'free', name: tIn.name,
         instrument: tIn.instrument, channel: tIn.channel, volume: tIn.volume,
-        output: tIn.output, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
+        output: tIn.output, engineTarget: tIn.engineTarget, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
         muted: tIn.muted, soloed: tIn.soloed, synth: tIn.synth,
         items,
       }));
@@ -1593,7 +1595,7 @@ function seqLoad() {
         }
         SEQ.tracksList.push(makeTrack({
           id: tIn.id, kind: tIn.kind || 'free', name: tIn.name,
-          instrument: tIn.instrument, channel: tIn.channel, volume: tIn.volume, output: tIn.output, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
+          instrument: tIn.instrument, channel: tIn.channel, volume: tIn.volume, output: tIn.output, engineTarget: tIn.engineTarget, midiPortId: tIn.midiPortId, midiInPortId: tIn.midiInPortId,
           muted: tIn.muted, soloed: tIn.soloed, synth: tIn.synth,
           items,
         }));

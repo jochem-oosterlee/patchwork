@@ -20,6 +20,7 @@
 #include "StaticDirServer.h"
 #include "MidiManager.h"
 #include "PluginHost.h"
+#include "Sequencer.h"
 #include "Settings.h"
 #include <BinaryData.h>
 
@@ -520,14 +521,15 @@ public:
         plugin.playHead.tsDen.store (settings.tsDenominator);
         bypassPlugin.store (true);
         loadPinnedForCurrentSet();
-        cpLoadPersisted();            // chord-pad's per-track VSTs
+        for (auto& id : seqTargets) ensurePresetLoaded (id);   // instruments the song plays
         broadcastState();
     }
 
     // ---- Unified project (song + rack + routing) ------------------------
     // A project bundles Patchwork's settings (sets/presets/plugin state/sources
-    // /tempo) with chord-pad's arrangement, fetched over the WS link. Patchwork
-    // owns the file; chord-pad's half round-trips through get_project/load_project.
+    // /tempo) with the compose view's song. Both live on disk here: settings.json
+    // and compose.json (the compose view autosaves to us), so saving is a plain
+    // read of the two.
     void startProjectSave()
     {
         projectChooser = std::make_unique<juce::FileChooser> ("Save project", juce::File(), "*.pwproj");
@@ -539,24 +541,16 @@ public:
                 auto f = fc.getResult();
                 if (f == juce::File()) return;
                 if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("pwproj");
-                cpCaptureStates();                  // latest chord-pad VST preset states
                 settings.save();                    // flush current rack/routing to settings.json
-                pendingSaveFile = f;
-                juce::DynamicObject::Ptr req = new juce::DynamicObject();
-                req->setProperty ("event", "get_project");
-                ws.broadcast (juce::var (req.get()));   // chord-pad answers via project_data
-                // Fallback: if chord-pad isn't linked, still save the Patchwork side.
-                juce::Timer::callAfterDelay (1500, [this]
-                {
-                    if (pendingSaveFile == juce::File()) return;   // already completed
-                    juce::DynamicObject::Ptr proj = new juce::DynamicObject();
-                    proj->setProperty ("format", "patchwork-project");
-                    proj->setProperty ("version", 1);
-                    proj->setProperty ("patchwork", juce::JSON::parse (Settings::file()));
-                    pendingSaveFile.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
-                    logToUi ("project saved (Patchwork only — chord-pad not linked): " + pendingSaveFile.getFullPathName());
-                    pendingSaveFile = juce::File();
-                });
+                juce::DynamicObject::Ptr proj = new juce::DynamicObject();
+                proj->setProperty ("format",    "patchwork-project");
+                proj->setProperty ("version",   2);
+                proj->setProperty ("patchwork", juce::JSON::parse (Settings::file()));
+                const auto cf = Settings::composeFile();
+                proj->setProperty ("chordpad",  cf.existsAsFile() ? juce::JSON::parse (cf) : juce::var());
+                const bool ok = f.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
+                logToUi (ok ? ("project saved: " + f.getFullPathName())
+                            : ("project save FAILED: " + f.getFullPathName()));
             });
     }
 
@@ -571,6 +565,7 @@ public:
                 if (! f.existsAsFile()) return;
                 auto v = juce::JSON::parse (f);
                 if (! v.isObject()) { logToUi ("not a valid project file"); return; }
+                seq.stop();
                 auto patchVar = v.getProperty ("patchwork", juce::var());
                 if (patchVar.isObject())
                 {
@@ -579,10 +574,13 @@ public:
                     settings.load();
                     restoreFromSettings();
                 }
+                auto chordVar = v.getProperty ("chordpad", juce::var());
+                if (! chordVar.isVoid())
+                    Settings::composeFile().replaceWithText (juce::JSON::toString (chordVar, true));
                 juce::DynamicObject::Ptr msg = new juce::DynamicObject();
                 msg->setProperty ("event", "load_project");
-                msg->setProperty ("data", v.getProperty ("chordpad", juce::var()));
-                ws.broadcast (juce::var (msg.get()));   // chord-pad applies its half
+                msg->setProperty ("data",  chordVar);
+                ws.broadcast (juce::var (msg.get()));   // the compose view applies its half and re-sends the seq model
                 logToUi ("project opened: " + f.getFullPathName());
             });
     }
@@ -599,31 +597,21 @@ public:
         const int    n  = info.numSamples;
         const double sr = currentSampleRate;
 
-        // When chord-pad is the transport master, advance the play-head's
-        // ppqPosition ourselves so hosted plugins (arps, tempo-synced FX)
-        // keep running between the sparse transport messages over the WS.
-        const bool   advancing = wsClockMaster.load() && plugin.playHead.isPlaying.load() && sr > 0.0;
-        const double startPpq  = plugin.playHead.ppqPosition.load();
-        const double bps       = plugin.playHead.bpm.load() / 60.0 / (sr > 0.0 ? sr : 44100.0);
-        if (advancing)
-            plugin.playHead.ppqPosition.store (startPpq + bps * n);
-
-        // Collect metronome click onsets that fall inside this block (half-open
-        // [startPpq, endPpq) so a beat on a block boundary fires exactly once).
-        std::array<std::pair<int, bool>, 8> clicks;   // {sampleOffset, accent}
-        int clickCount = 0;
-        if (metroOn.load() && advancing && bps > 0.0)
-        {
-            const int    tsNum  = juce::jmax (1, (int) plugin.playHead.tsNum.load());
-            const double endPpq = startPpq + bps * n;
-            for (long long b = (long long) std::ceil (startPpq); b < (long long) std::ceil (endPpq); ++b)
+        // The sequencer owns the transport: it advances the position, drops its
+        // note events sample-accurately into the target plugins' block buffers
+        // and reports where the beats fall for the metronome. The play-head
+        // mirrors it so hosted plugins (arps, tempo-synced FX) follow along.
+        const double bpm   = plugin.playHead.bpm.load();
+        const int    tsNum = juce::jmax (1, (int) plugin.playHead.tsNum.load());
+        const auto blk = seq.process (n, sr, bpm, tsNum,
+            [this] (const juce::String& target, const juce::MidiMessage& m, int offset)
             {
-                int off = (int) std::llround ((b - startPpq) / bps);
-                off = juce::jlimit (0, n - 1, off);
-                clicks[(size_t) clickCount] = { off, (b % tsNum) == 0 };
-                if (++clickCount >= (int) clicks.size()) break;
-            }
-        }
+                plugin.addBlockMidi (target, m, offset);
+                if (m.isNoteOn()) seqNotesFired.fetch_add (1);
+            });
+        plugin.playHead.isPlaying.store (blk.playing);
+        plugin.playHead.ppqPosition.store (blk.startBeat);
+        const int clickCount = metroOn.load() ? blk.clickCount : 0;
 
         info.clearActiveBufferRegion();
         juce::AudioBuffer<float> slice (info.buffer->getArrayOfWritePointers(),
@@ -636,7 +624,7 @@ public:
         const int pc = pendingClick.exchange (0);
         if (pc != 0) { metroEnv = 1.0; metroPhase = 0.0; metroFreq = (pc == 2 ? 1600.0 : 1000.0); }
 
-        renderMetronome (slice, n, clicks, clickCount);
+        renderMetronome (slice, n, blk.clicks, clickCount);
     }
 
     // Mix the metronome click into the buffer. A short decaying sine, restarted
@@ -781,8 +769,8 @@ private:
 
     void handleClockMessage (const juce::MidiMessage& m)
     {
-        // chord-pad (over the WS) wins over external MIDI clock while linked.
-        if (wsClockMaster.load()) return;
+        // External clock sets the tempo and starts/stops our transport; the
+        // sequencer itself stays the source of the position.
         if (m.isMidiClock())
         {
             if (! clockActive) logToUi ("MIDI clock detected");
@@ -798,20 +786,12 @@ private:
                 }
             }
             lastClockMs = now;
-            clockPpq += 1.0 / 24.0;
-            plugin.playHead.ppqPosition.store (clockPpq);
             clockActive = true;
             if (++clockTickCounter >= 24) { clockTickCounter = 0; beatPulseDue.store (true); }
         }
-        else if (m.isMidiStart() || m.isMidiContinue())
-        {
-            plugin.playHead.isPlaying.store (true);
-            if (m.isMidiStart()) { clockPpq = 0.0; plugin.playHead.ppqPosition.store (0.0); }
-        }
-        else if (m.isMidiStop())
-        {
-            plugin.playHead.isPlaying.store (false);
-        }
+        else if (m.isMidiStart())    seq.play (0.0);
+        else if (m.isMidiContinue()) seq.play (seq.positionBeats());
+        else if (m.isMidiStop())     seq.stop();
     }
 
     bool matchesSourceFilter (const Preset& p, const juce::String& source, const juce::MidiMessage& m)
@@ -855,12 +835,12 @@ private:
             titleBar.setStatus (s, playing);
         }
 
-        // Periodically snapshot chord-pad VST states (preset choices) so they
-        // persist. Only saves when something actually changed.
-        if (++cpStateCaptureCounter >= 90)   // ~3s at 30Hz
+        // Transport position for the UIs' playheads: every tick while playing,
+        // plus one message when play/stop flips.
         {
-            cpStateCaptureCounter = 0;
-            if (cpCaptureStates()) settings.save();
+            const bool p = seq.isPlaying();
+            if (p || p != lastTransportPlaying) broadcastTransport();
+            lastTransportPlaying = p;
         }
 
         // Re-scan available MIDI devices every couple of seconds. If the set
@@ -905,7 +885,6 @@ private:
             clockActive = false;
             clockBpm    = 0.0;
             plugin.playHead.bpm.store (settings.bpm);
-            plugin.playHead.isPlaying.store (false);
         }
 
         const bool in  = midiInActivity.exchange  (false);
@@ -954,40 +933,59 @@ private:
         if (cmd != "kb_note" && cmd != "transport")
             logToUi ("ws cmd: " + cmd);
 
-        // ---- chord-pad link (private handshake + transport) --------------
+        // ---- compose view link (handshake, transport, song model) ---------
         if (cmd == "hello")
         {
             const auto role = v.getProperty ("role", "").toString();
             const int  ver  = (int) v.getProperty ("version", 0);
             if (role == "chordpad")
             {
-                logToUi ("chord-pad linked (v" + juce::String (ver) + ")");
-                juce::DynamicObject::Ptr ack = new juce::DynamicObject();
-                ack->setProperty ("event",   "chordpad_ack");
-                ack->setProperty ("engine",  "midi-host");
-                ack->setProperty ("version", 1);
-                ws.broadcast (juce::var (ack.get()));
-                juce::MessageManager::callAsync ([this] { broadcastState(); broadcastCpState(); });
+                logToUi ("compose view linked (v" + juce::String (ver) + ")");
+                juce::MessageManager::callAsync ([this]
+                {
+                    juce::DynamicObject::Ptr ack = new juce::DynamicObject();
+                    ack->setProperty ("event",   "chordpad_ack");
+                    ack->setProperty ("engine",  "patchwork");
+                    ack->setProperty ("version", 2);
+                    ws.broadcast (juce::var (ack.get()));
+                    broadcastState();
+                    // Hand the compose view its last autosaved song; it answers
+                    // with a fresh seq_model.
+                    const auto cf = Settings::composeFile();
+                    if (cf.existsAsFile())
+                    {
+                        juce::DynamicObject::Ptr msg = new juce::DynamicObject();
+                        msg->setProperty ("event", "load_project");
+                        msg->setProperty ("data",  juce::JSON::parse (cf));
+                        ws.broadcast (juce::var (msg.get()));
+                    }
+                    broadcastTransport();
+                });
             }
             return;
         }
-        else if (cmd == "transport")
+        else if (cmd == "transport_play")
         {
-            const bool   playing = (bool)   v.getProperty ("playing", false);
-            const double beat    = (double) v.getProperty ("beat", 0.0);
-            const bool   hasBpm  = v.hasProperty ("bpm");
-            const double bpm     = (double) v.getProperty ("bpm", 0.0);
-            wsClockMaster.store (true);
-            if (hasBpm && bpm > 0.0) plugin.playHead.bpm.store (bpm);
-            if (playing) plugin.playHead.ppqPosition.store (beat);
-            plugin.playHead.isPlaying.store (playing);
+            seq.play (v.hasProperty ("beat") ? (double) v.getProperty ("beat", 0.0) : seq.positionBeats());
             return;
         }
-        else if (cmd == "unlink_transport")
+        else if (cmd == "transport_stop") { seq.stop(); return; }
+        else if (cmd == "transport_seek") { seq.seek ((double) v.getProperty ("beat", 0.0)); return; }
+        else if (cmd == "seq_model")
         {
-            // chord-pad hands transport back (e.g. on disconnect / standalone).
-            wsClockMaster.store (false);
-            plugin.playHead.isPlaying.store (false);
+            // The flattened song (tracks → notes in absolute beats + target instrument).
+            const auto model = v.getProperty ("model", juce::var());
+            juce::MessageManager::callAsync ([this, model] { applySeqModel (model); });
+            return;
+        }
+        else if (cmd == "compose_save")
+        {
+            // Autosave of the compose view's rich project — we own the file.
+            const auto data = v.getProperty ("data", juce::var());
+            juce::MessageManager::callAsync ([data]
+            {
+                Settings::composeFile().replaceWithText (juce::JSON::toString (data, true));
+            });
             return;
         }
         else if (cmd == "metronome")
@@ -1003,122 +1001,8 @@ private:
             pendingClick.store ((bool) v.getProperty ("accent", false) ? 2 : 1);
             return;
         }
-        else if (cmd == "cp_set_vst")
-        {
-            const int  channel = (int) v.getProperty ("channel", 1);
-            const auto path    = v.getProperty ("path", "").toString();
-            const auto name    = v.getProperty ("name", "").toString();
-            juce::MessageManager::callAsync ([this, channel, path, name] { cpSetVst (channel, juce::File (path), name); });
-            return;
-        }
-        else if (cmd == "cp_clear_vst")
-        {
-            const int channel = (int) v.getProperty ("channel", 1);
-            juce::MessageManager::callAsync ([this, channel] { cpClearVst (channel); });
-            return;
-        }
-        else if (cmd == "list_cp_vsts")
-        {
-            juce::MessageManager::callAsync ([this] { broadcastCpState(); });
-            return;
-        }
-        else if (cmd == "cp_open_editor")
-        {
-            const int channel = (int) v.getProperty ("channel", 1);
-            juce::MessageManager::callAsync ([this, channel] { plugin.showEditor (cpVstId (juce::jlimit (1, 16, channel))); });
-            return;
-        }
-        else if (cmd == "route_channel")
-        {
-            // chord-pad routing: map a track channel to a plugin by managing a
-            // per-channel virtual "chord-pad" source and its preset assignment.
-            const int  channel  = juce::jlimit (1, 16, (int) v.getProperty ("channel", 1));
-            const auto presetId = v.getProperty ("presetId", "").toString();
-            const bool on       = (bool) v.getProperty ("on", true);
-            juce::MessageManager::callAsync ([this, channel, presetId, on]
-            {
-                pushUndo();
-                const juce::uint16 mask = (juce::uint16) (1u << (channel - 1));
-                juce::String srcId;
-                for (auto& s : settings.sources)
-                    if (s.deviceName == MidiManager::kChordPadInput && s.channelMask == mask) { srcId = s.id; break; }
-                if (srcId.isEmpty())
-                {
-                    Source s;
-                    s.id          = juce::Uuid().toString();
-                    s.deviceName  = MidiManager::kChordPadInput;
-                    s.label       = "chord-pad ch" + juce::String (channel);
-                    s.icon        = "music";
-                    s.channelMask = mask;
-                    srcId = s.id;
-                    settings.sources.push_back (std::move (s));
-                }
-                for (auto& set : settings.sets)
-                    for (auto& pr : set.presets)
-                        if (pr.id == presetId)
-                        {
-                            if (on) { if (! pr.sourceIds.contains (srcId)) pr.sourceIds.add (srcId); }
-                            else    { pr.sourceIds.removeString (srcId); sendPanic (pr.id); }
-                        }
-                settings.save();
-                broadcastState();
-            });
-            return;
-        }
-        else if (cmd == "set_channel_target")
-        {
-            // Exclusive routing: a track channel plays exactly one plugin (or
-            // none). Ensures the per-channel chord-pad source, then assigns it
-            // to only the target preset. Powers chord-pad's per-track VST picker.
-            const int  channel  = juce::jlimit (1, 16, (int) v.getProperty ("channel", 1));
-            const auto presetId = v.getProperty ("presetId", "").toString();   // empty = none
-            juce::MessageManager::callAsync ([this, channel, presetId]
-            {
-                pushUndo();
-                const juce::uint16 mask = (juce::uint16) (1u << (channel - 1));
-                juce::String srcId;
-                for (auto& s : settings.sources)
-                    if (s.deviceName == MidiManager::kChordPadInput && s.channelMask == mask) { srcId = s.id; break; }
-                if (srcId.isEmpty())
-                {
-                    Source s;
-                    s.id = juce::Uuid().toString(); s.deviceName = MidiManager::kChordPadInput;
-                    s.label = "chord-pad ch" + juce::String (channel); s.icon = "music"; s.channelMask = mask;
-                    srcId = s.id; settings.sources.push_back (std::move (s));
-                }
-                for (auto& set : settings.sets)
-                    for (auto& pr : set.presets)
-                    {
-                        const bool had = pr.sourceIds.contains (srcId);
-                        if (pr.id == presetId) { if (! had) pr.sourceIds.add (srcId); }
-                        else if (had)          { pr.sourceIds.removeString (srcId); sendPanic (pr.id); }
-                    }
-                settings.save();
-                broadcastState();
-            });
-            return;
-        }
         else if (cmd == "project_save") { juce::MessageManager::callAsync ([this] { startProjectSave(); }); return; }
         else if (cmd == "project_open") { juce::MessageManager::callAsync ([this] { startProjectOpen(); }); return; }
-        else if (cmd == "project_data")
-        {
-            // chord-pad's answer to our get_project request — complete the save.
-            if (pendingSaveFile != juce::File())
-            {
-                auto chordVar = v.getProperty ("data", juce::var());
-                juce::var patchVar = juce::JSON::parse (Settings::file());
-                juce::DynamicObject::Ptr proj = new juce::DynamicObject();
-                proj->setProperty ("format",    "patchwork-project");
-                proj->setProperty ("version",   1);
-                proj->setProperty ("patchwork", patchVar);
-                proj->setProperty ("chordpad",  chordVar);
-                const auto ok = pendingSaveFile.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
-                logToUi (ok ? ("project saved: " + pendingSaveFile.getFullPathName())
-                            : ("project save FAILED: " + pendingSaveFile.getFullPathName()));
-                pendingSaveFile = juce::File();
-            }
-            return;
-        }
 
         if (cmd == "list_midi_inputs")
         {
@@ -1243,29 +1127,24 @@ private:
         }
         else if (cmd == "note")
         {
-            // chord-pad note over the link. The note carries its track channel
-            // (1-16). Primary model: each channel plays chord-pad's own always-on
-            // VST (cp-ch{n}). If none is set for the channel, fall back to any
-            // live Patchwork plugin so it still sounds.
-            const int  note = juce::jlimit (0, 127, (int) v.getProperty ("note", 60));
-            const int  vel  = juce::jlimit (0, 127, (int) v.getProperty ("vel",  100));
-            const bool on   = (bool) v.getProperty ("on", true);
-            const int  ch   = juce::jlimit (1, 16, (int) v.getProperty ("ch", 1));
+            // Live note from the compose view (pads, keyboard, previews). With a
+            // target it goes straight to that instrument; without one it enters
+            // the normal routing as the virtual "chord-pad" input, so the pads
+            // behave like any other controller feeding the rack.
+            const int  note   = juce::jlimit (0, 127, (int) v.getProperty ("note", 60));
+            const int  vel    = juce::jlimit (0, 127, (int) v.getProperty ("vel",  100));
+            const bool on     = (bool) v.getProperty ("on", true);
+            const int  ch     = juce::jlimit (1, 16, (int) v.getProperty ("ch", 1));
+            const auto target = v.getProperty ("target", "").toString();
             auto m = (on && vel > 0) ? juce::MidiMessage::noteOn  (ch, note, (juce::uint8) vel)
                                      : juce::MidiMessage::noteOff (ch, note);
-
-            const auto cpId = cpVstId (ch);
-            if (plugin.has (cpId))
+            if (target.isNotEmpty())
             {
-                plugin.queueMidi (cpId, m);                // chord-pad's own VST for this channel
+                if (plugin.has (target)) plugin.queueMidi (target, m);
+                midiInActivity.store (true);
             }
             else
-            {
-                for (auto& p : settings.currentPresets())  // fallback: any live plugin
-                    if (plugin.has (p.id))
-                        plugin.queueMidi (p.id, m);
-            }
-            midiInActivity.store (true);
+                onMidi (MidiManager::kChordPadInput, m);
         }
         else if (cmd == "panic")
         {
@@ -2161,6 +2040,7 @@ private:
         if (currentPresetIndex >= 0 && currentPresetIndex < (int) presets.size())
             keep.addIfNotAlreadyThere (presets[(size_t) currentPresetIndex].id);
         for (auto& p : presets) if (p.pinned) keep.addIfNotAlreadyThere (p.id);
+        for (auto& id : seqTargets) keep.addIfNotAlreadyThere (id);   // the song's instruments stay up
 
         for (auto& id : plugin.liveIds())
             if (! keep.contains (id)) plugin.unload (id);
@@ -2205,88 +2085,88 @@ private:
         return nullptr;
     }
 
-    // ---- chord-pad VST hosting (per channel, always active) --------------
-    static juce::String cpVstId (int channel) { return "cp-ch" + juce::String (channel); }
+    // ---- Sequencer model + transport reporting ---------------------------
 
-    void cpSetVst (int channel, const juce::File& file, const juce::String& name)
+    // Parse the compose view's flattened song and hand it to the sequencer.
+    // Instruments it references are loaded (and kept loaded by reconcile).
+    void applySeqModel (const juce::var& v)
     {
-        channel = juce::jlimit (1, 16, channel);
-        const auto id = cpVstId (channel);
-        plugin.unload (id);
-        if (! file.exists())
-        {
-            settings.cpVstPath[channel] = {}; settings.cpVstName[channel] = {};
-            settings.save(); broadcastCpState(); return;
-        }
-        settings.cpVstPath[channel] = file.getFullPathName();
-        settings.cpVstName[channel] = name;
-        settings.save();
-        plugin.load (id, file, [this, channel] (const juce::String&, const juce::String& err)
-        {
-            if (err.isNotEmpty()) logToUi ("chord-pad VST ch" + juce::String (channel) + " load failed: " + err);
-            broadcastCpState();
-        });
-        broadcastCpState();
-    }
-
-    void cpClearVst (int channel)
-    {
-        channel = juce::jlimit (1, 16, channel);
-        plugin.unload (cpVstId (channel));
-        settings.cpVstPath[channel] = {}; settings.cpVstName[channel] = {};
-        settings.save();
-        broadcastCpState();
-    }
-
-    // Load the persisted chord-pad VSTs (called on startup), restoring each
-    // plugin's saved state (which includes the selected preset).
-    void cpLoadPersisted()
-    {
-        for (int ch = 1; ch <= 16; ++ch)
-        {
-            juce::File f (settings.cpVstPath[ch]);
-            if (settings.cpVstPath[ch].isNotEmpty() && f.exists())
+        auto m = std::make_shared<SeqModel>();
+        m->loop      = (bool)   v.getProperty ("loop",      false);
+        m->loopStart = (double) v.getProperty ("loopStart", 0.0);
+        m->loopEnd   = (double) v.getProperty ("loopEnd",   4.0);
+        juce::StringArray targets;
+        if (auto* arr = v.getProperty ("tracks", juce::var()).getArray())
+            for (auto& t : *arr)
             {
-                const juce::String st = settings.cpVstState[ch];
-                plugin.load (cpVstId (ch), f, [this, ch, st] (const juce::String&, const juce::String& err)
+                SeqTrack tr;
+                tr.id      = t.getProperty ("id",     "").toString();
+                tr.target  = t.getProperty ("target", "").toString();
+                tr.channel = juce::jlimit (1, 16, (int) t.getProperty ("channel", 1));
+                tr.audible = (bool) t.getProperty ("audible", true);
+                if (auto* na = t.getProperty ("notes", juce::var()).getArray())
+                    for (auto& n : *na)
+                    {
+                        SeqNote nt;
+                        nt.start = (double) n.getProperty ("start", 0.0);
+                        nt.beats = juce::jmax (0.01, (double) n.getProperty ("beats", 1.0));
+                        nt.midi  = juce::jlimit (0, 127, (int) n.getProperty ("midi", 60));
+                        nt.vel   = juce::jlimit (1, 127, (int) n.getProperty ("vel",  100));
+                        tr.notes.push_back (nt);
+                    }
+                std::sort (tr.notes.begin(), tr.notes.end(),
+                           [] (const SeqNote& a, const SeqNote& b) { return a.start < b.start; });
+                if (tr.target.isNotEmpty()) targets.addIfNotAlreadyThere (tr.target);
+                m->tracks.push_back (std::move (tr));
+            }
+        seqTargets = targets;
+        for (auto& id : targets) ensurePresetLoaded (id);
+        seq.setModel (std::move (m));
+    }
+
+    // Load a preset's plugin (with its saved state) if it isn't live yet.
+    // Looks across all patchsets: a song may play instruments from any set.
+    void ensurePresetLoaded (const juce::String& id)
+    {
+        if (plugin.has (id) || loadingPresetIds.contains (id)) return;
+        for (auto& set : settings.sets)
+            for (auto& p : set.presets)
+                if (p.id == id)
                 {
-                    if (err.isEmpty() && st.isNotEmpty()) plugin.applyStateBase64 (cpVstId (ch), st);
-                    broadcastCpState();
-                });
-            }
-        }
+                    juce::File f (p.pluginPath);
+                    if (! f.exists()) return;
+                    const auto st = p.stateB64;
+                    loadPluginForPreset (id, f, [this, id, st]
+                    {
+                        if (st.isNotEmpty()) plugin.applyStateBase64 (id, st);
+                    });
+                    return;
+                }
     }
 
-    // Snapshot each loaded chord-pad VST's state (preset etc.) into settings.
-    // Returns true if anything changed since last time.
-    bool cpCaptureStates()
+    void broadcastTransport()
     {
-        bool changed = false;
-        for (int ch = 1; ch <= 16; ++ch)
-            if (settings.cpVstPath[ch].isNotEmpty() && plugin.has (cpVstId (ch)))
-            {
-                auto s = plugin.getStateBase64 (cpVstId (ch));
-                if (s.isNotEmpty() && s != settings.cpVstState[ch]) { settings.cpVstState[ch] = s; changed = true; }
-            }
-        return changed;
-    }
-
-    void broadcastCpState()
-    {
-        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
-        obj->setProperty ("event", "cp_state");
-        juce::DynamicObject::Ptr chans = new juce::DynamicObject();
-        for (int ch = 1; ch <= 16; ++ch)
-            if (settings.cpVstPath[ch].isNotEmpty())
-            {
-                juce::DynamicObject::Ptr c = new juce::DynamicObject();
-                c->setProperty ("name",   settings.cpVstName[ch]);
-                c->setProperty ("path",   settings.cpVstPath[ch]);
-                c->setProperty ("loaded", plugin.has (cpVstId (ch)));
-                chans->setProperty (juce::String (ch), juce::var (c.get()));
-            }
-        obj->setProperty ("channels", juce::var (chans.get()));
-        ws.broadcast (juce::var (obj.get()));
+        bool loop = false; double ls = 0.0, le = 4.0;
+        seq.getLoop (loop, ls, le);
+        const double bpm = plugin.playHead.bpm.load();
+        // Output latency in beats, so the UIs can draw the playhead where the
+        // listener actually is rather than where we are rendering.
+        double latencyBeats = 0.0;
+        if (auto* dev = deviceManager.getCurrentAudioDevice())
+            if (dev->getCurrentSampleRate() > 0.0)
+                latencyBeats = dev->getOutputLatencyInSamples() / dev->getCurrentSampleRate() * bpm / 60.0;
+        juce::DynamicObject::Ptr o = new juce::DynamicObject();
+        o->setProperty ("event",        "transport");
+        o->setProperty ("playing",      seq.isPlaying());
+        o->setProperty ("beat",         seq.positionBeats());
+        o->setProperty ("bpm",          bpm);
+        o->setProperty ("tsNum",        (int) plugin.playHead.tsNum.load());
+        o->setProperty ("loop",         loop);
+        o->setProperty ("loopStart",    ls);
+        o->setProperty ("loopEnd",      le);
+        o->setProperty ("latencyBeats", latencyBeats);
+        o->setProperty ("notesFired",   (int) seqNotesFired.load());   // running count, for diagnostics
+        ws.broadcast (juce::var (o.get()));
     }
 
     void loadPluginForPreset (const juce::String& presetId, const juce::File& file,
@@ -2346,10 +2226,11 @@ private:
     bool   clockActive = false;
     int    clockTickCounter = 0;
     std::atomic<bool> beatPulseDue { false };
-    // chord-pad transport link: when true, chord-pad drives the play-head over
-    // the WebSocket and we free-run ppqPosition in the audio callback. Takes
-    // precedence over incoming MIDI clock so the two never fight.
-    std::atomic<bool> wsClockMaster { false };
+    // The sequencer owns transport + position; the play-head mirrors it.
+    Sequencer         seq;
+    juce::StringArray seqTargets;                 // instrument ids the current song uses (kept loaded)
+    bool              lastTransportPlaying = false;
+    std::atomic<int>  seqNotesFired { 0 };
 
     // Engine metronome — clicks on each beat of the (chord-pad-driven) play-head,
     // mixed into our own audio output so it comes out the same interface (ASIO)
@@ -2364,12 +2245,6 @@ private:
     // 2 accent. Fires regardless of transport state so the pre-count is audible
     // out the interface before playback starts.
     std::atomic<int> pendingClick { 0 };
-    int cpStateCaptureCounter = 0;   // throttles chord-pad VST state snapshots
-
-    // chord-pad's own VST hosting: one always-on plugin per channel (1-16),
-    // hosted in PluginHost under instance id "cp-ch{n}", independent of
-    // Patchwork's presets/sets/pins. The per-channel path/name persist in
-    // Settings (settings.cpVstPath/cpVstName).
     juce::StringArray loggedClockBlocked;
 
     std::atomic<bool> bypassPlugin { false };
@@ -2485,7 +2360,6 @@ private:
     int                currentPresetIndex = -1;
     std::unique_ptr<juce::FileChooser>          chooser;
     std::unique_ptr<juce::FileChooser>          projectChooser;   // save/open project
-    juce::File                                  pendingSaveFile;  // awaiting chord-pad's data
     std::unique_ptr<juce::WebBrowserComponent>  browser;
     std::unique_ptr<juce::WebBrowserComponent>  chordBrowser;   // embedded chord-pad
     TitleBar titleBar;                                          // custom caption + tabs + window buttons

@@ -21,10 +21,47 @@ in ingebedde WebView2-views: één venster, geen losse Chrome-tab meer.
 De compose-view wordt van schijf geserveerd (`ui/compose/` in de source tree,
 override via `chordPadDir` in settings.json).
 
-**Let op (2026-10-24):** de chord-pad-kant van de WS-koppeling (hello/transport/
-note/cp_set_vst/project_data) is nooit gepusht; `ui/compose/` is de kale
-chord-pad van 16 juni zonder link-code. De engine-kant staat wel in Main.cpp.
-Plan: niet herstellen maar vervangen — zie "Richting" hieronder.
+De oude koppeling (chord-pad als transport-master, `cp-ch{n}`-VSTs per kanaal,
+`route_channel`, `project_data`-rondreis) is op 2026-10-24 vervangen door het
+model hieronder; de chord-pad-kant ervan was toch nooit gepusht.
+
+## Engine-link (fase 1, 2026-10-24)
+
+De engine bezit transport en sequencer. `ui/compose/js/link.js` (als laatste
+geladen) legt wrappers om chord-pad's functies: gekoppeld → engine, anders het
+oude Web Audio-gedrag. Engine-kant: `engine/Sequencer.h` (RT-veilig, model via
+spin-locked pointer-swap, note-ons sample-accuraat in `PluginHost::addBlockMidi`).
+
+UI → engine:
+- `hello {role:'chordpad', version:2}` → `chordpad_ack`, `state`, `load_project`
+  (compose.json), `transport`.
+- `seq_model {model:{loop, loopStart, loopEnd, tracks:[{id, target, channel,
+  audible, notes:[{start, beats, midi, vel}]}]}}` — plat, absolute kwartnoot-beats,
+  noten al uitgerekend (chordToMidiNotes + bas) door de UI. Bij elke `seqSave`.
+  `target` = preset-id uit Patchwork; '' = stil. Tracks met output 'instrument'
+  spelen het pad-instrument (badge rechtsonder), output 'engine' hun eigen
+  `engineTarget`, output 'midi' zijn stil zolang de link actief is.
+- `transport_play {beat}`, `transport_stop`, `transport_seek {beat}`, `set_bpm`,
+  `metronome {on}`, `click {accent}` (count-in).
+- `note {on, note, vel, ch, target}` — live noten (pads, keyboard, previews).
+  Zonder target gaat de noot als virtuele input "chord-pad" door de normale
+  sources/presets-routing van de rack.
+- `compose_save {data}` — autosave van het rijke project naar
+  `%APPDATA%\MidiHost\compose.json`. Project save/open (`.pwproj`) bundelt
+  settings.json + compose.json; geen rondreis meer.
+
+Engine → UI: `transport {playing, beat, bpm, tsNum, loop, loopStart, loopEnd,
+latencyBeats, notesFired}` op 30 Hz tijdens spelen (+1 bij play/stop-wissel).
+De UI interpoleert de playhead ertussen en trekt `latencyBeats` eraf.
+
+Getest met `scratchpad/seqtest.py` (WS-client): loop-wrap, seek, stop en
+note-emissie kloppen. Instrumenten die het nummer gebruikt (`seqTargets`)
+blijven geladen (`reconcileLiveInstances`) en worden bij `seq_model` geladen
+(`ensurePresetLoaded`, over alle patchsets heen).
+
+Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
+tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
+WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).
 
 ## Richting (besloten 2026-10-24)
 

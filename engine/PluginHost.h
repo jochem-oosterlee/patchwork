@@ -50,9 +50,12 @@ public:
 
 struct LiveInstance
 {
+    LiveInstance() { blockMidi.ensureSize (8192); }
+
     std::unique_ptr<juce::AudioPluginInstance> instance;
     std::unique_ptr<PluginEditorWindow>        editor;
-    juce::MidiMessageCollector                 collector;
+    juce::MidiMessageCollector                 collector;   // live input: lands at the start of the next block
+    juce::MidiBuffer                           blockMidi;   // sequencer: sample-accurate within the current block
     std::atomic<float>                         gain        { 1.0f };
     std::atomic<float>                         outputLevel { 0.0f }; // peak abs of last block
     std::atomic<bool>                          broken      { false }; // produced NaN / threw
@@ -97,6 +100,8 @@ public:
             if (! lp->instance) continue;
             juce::MidiBuffer midi;
             lp->collector.removeNextBlockOfMessages (midi, numSamples);
+            midi.addEvents (lp->blockMidi, 0, numSamples, 0);
+            lp->blockMidi.clear();
             if (lp->broken.load()) continue; // wait for message-thread to reload
             temp.clear();
             try { lp->instance->processBlock (temp, midi); }
@@ -128,6 +133,16 @@ public:
         auto it = live.find (presetId);
         if (it != live.end() && it->second != nullptr)
             it->second->collector.addMessageToQueue (m);
+    }
+
+    // Audio-thread, before process(): place a message at an exact sample
+    // offset inside the block about to be rendered. Used by the sequencer.
+    void addBlockMidi (const juce::String& id, const juce::MidiMessage& m, int sampleOffset)
+    {
+        const juce::ScopedLock sl (lock);
+        auto it = live.find (id);
+        if (it != live.end() && it->second != nullptr)
+            it->second->blockMidi.addEvent (m, juce::jmax (0, sampleOffset));
     }
 
     juce::StringArray liveIds() const
