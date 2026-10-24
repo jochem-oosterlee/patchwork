@@ -762,6 +762,8 @@ body.dragging-preset .preset-row { transition: box-shadow 0.08s; }
   font-size: 9px; letter-spacing: 0.04em;
 }
 .fx-chip .fx-name { padding: 0 4px; cursor: pointer; }
+.fx-chip.dragging { opacity: 0.4; }
+.fx-chip.drop-here { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .fx-chip .fx-name:hover { color: var(--accent); }
 .fx-chip.bypassed .fx-name { color: var(--text-faint); text-decoration: line-through; }
 .fx-chip.offline { border-style: dashed; color: var(--text-dim); }

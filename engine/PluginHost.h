@@ -340,6 +340,20 @@ public:
         if (doomed) doomed->editor.reset();
     }
 
+    // Move an effect within the chain (audio thread sees the new order from
+    // the next block on).
+    void moveFx (const juce::String& presetId, int from, int to)
+    {
+        const juce::ScopedLock sl (lock);
+        auto it = live.find (presetId);
+        if (it == live.end() || it->second == nullptr) return;
+        auto& fx = it->second->fx;
+        if (from < 0 || from >= (int) fx.size() || to < 0 || to >= (int) fx.size() || from == to) return;
+        auto unit = std::move (fx[(size_t) from]);
+        fx.erase (fx.begin() + from);
+        fx.insert (fx.begin() + to, std::move (unit));
+    }
+
     void setFxBypass (const juce::String& presetId, int index, bool on)
     {
         const juce::ScopedLock sl (lock);

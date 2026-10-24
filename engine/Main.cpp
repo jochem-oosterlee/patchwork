@@ -870,7 +870,9 @@ private:
             return;
         }
         const auto cmd = v.getProperty ("cmd", "").toString();
-        if (cmd != "kb_note" && cmd != "transport")
+        // High-frequency / autosave traffic stays out of the log.
+        if (cmd != "kb_note" && cmd != "note" && cmd != "seq_model" && cmd != "compose_save"
+            && cmd != "transport_seek" && cmd != "get_state")
             logToUi ("ws cmd: " + cmd);
 
         // ---- compose view link (handshake, transport, song model) ---------
@@ -1217,6 +1219,26 @@ private:
                 pushUndo();
                 p.fx.erase (p.fx.begin() + fxi);
                 plugin.removeFx (p.id, fxi);
+                settings.save();
+                broadcastState();
+            });
+        }
+        else if (cmd == "move_fx")
+        {
+            const int idx  = (int) v.getProperty ("index", -1);
+            const int from = (int) v.getProperty ("from", -1);
+            const int to   = (int) v.getProperty ("to", -1);
+            juce::MessageManager::callAsync ([this, idx, from, to]
+            {
+                if (idx < 0 || idx >= (int) settings.currentPresets().size()) return;
+                auto& p = settings.currentPresets()[(size_t) idx];
+                const int n = (int) p.fx.size();
+                if (from < 0 || from >= n || to < 0 || to >= n || from == to) return;
+                pushUndo();
+                auto slot = p.fx[(size_t) from];
+                p.fx.erase (p.fx.begin() + from);
+                p.fx.insert (p.fx.begin() + to, slot);
+                plugin.moveFx (p.id, from, to);
                 settings.save();
                 broadcastState();
             });

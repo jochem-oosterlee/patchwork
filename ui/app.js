@@ -936,7 +936,31 @@ function renderFxStrip(fx, presetIndex) {
   fx.forEach((f, fi) => {
     const chip = document.createElement('span');
     chip.className = 'fx-chip' + (f.bypass ? ' bypassed' : '') + (f.loaded ? '' : ' offline');
-    chip.title = (f.loaded ? 'open editor' : 'not loaded') + ' — ' + f.path;
+    chip.title = (f.loaded ? 'open editor' : 'not loaded') + ' — ' + f.path + '\ndrag to reorder';
+    // Drag a chip onto another to change the order of the chain.
+    chip.draggable = true;
+    chip.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('application/x-patchwork-fx', presetIndex + ':' + fi);
+      e.dataTransfer.effectAllowed = 'move';
+      chip.classList.add('dragging');
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    chip.addEventListener('dragover', e => {
+      if (![...e.dataTransfer.types].includes('application/x-patchwork-fx')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      chip.classList.add('drop-here');
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drop-here'));
+    chip.addEventListener('drop', e => {
+      chip.classList.remove('drop-here');
+      const data = e.dataTransfer.getData('application/x-patchwork-fx');
+      if (!data) return;
+      e.preventDefault(); e.stopPropagation();
+      const [pi, from] = data.split(':').map(Number);
+      if (pi !== presetIndex || from === fi) return;
+      send({ cmd: 'move_fx', index: presetIndex, from, to: fi });
+    });
     const pw = document.createElement('button');
     pw.className = 'fx-power';
     pw.title = f.bypass ? 'bypassed — click to enable' : 'active — click to bypass';

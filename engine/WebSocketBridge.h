@@ -27,9 +27,6 @@ public:
                     ix::WebSocket&,
                     const ix::WebSocketMessagePtr& msg)
             {
-                if (logger)
-                    logger ("ws raw type=" + juce::String ((int) msg->type)
-                            + " len=" + juce::String ((int) msg->str.size()));
                 if (msg->type == ix::WebSocketMessageType::Message && onMessage)
                     onMessage (juce::String::fromUTF8 (msg->str.c_str(), (int) msg->str.size()));
             });

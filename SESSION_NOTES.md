@@ -130,6 +130,19 @@ om naar `'engine'`. De Web Audio-code zelf staat er nog (audio.js, SF2) maar
 wordt in embed niet gebruikt; verwijderen is opruimwerk voor later, net als
 touch-handlers, mobiele media queries en PWA-manifest.
 
+## Afronding (2026-10-24)
+
+- Effecten herordenen: chips slepen in de fx-strook → `move_fx {index, from, to}`
+  (`PluginHost::moveFx` wisselt de slots onder het lock).
+- PWA-laag uit de fork: manifest, sw.js, iconen en de meta-tags weg; een
+  eventueel achtergebleven service worker wordt bij laden uitgeschreven.
+  Embedded wordt de 148 MB SF2 niet meer opgehaald (`loadSf2` → no-op).
+- Log-ruis weg: WebSocketBridge logt geen raw frames meer; `note`, `seq_model`,
+  `compose_save`, `transport_seek`, `get_state` worden niet gelogd.
+- Besloten: geen ingebouwd GM-instrument (TinySoundFont); de gebruiker werkt
+  altijd met plugins. De Web Audio-code in de fork blijft staan (verborgen in
+  embed); echt verwijderen is een groot refactor van chord-pad.js voor later.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).

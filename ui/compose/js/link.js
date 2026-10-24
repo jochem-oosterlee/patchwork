@@ -342,6 +342,10 @@ const _linkOrig = {
   metroRun, metroRunSynced, metroHalt, applyTempoChange, recCurrentBeat,
 };
 
+// Embedded, the 148 MB GM soundfont is never needed (no in-app voice) — stop
+// audio.js from fetching it on startup. Its callers cope with a null result.
+if (EMBED) loadSf2 = function () { return Promise.resolve(null); };
+
 // Embedded there is no in-app voice: a track either plays a Patchwork
 // instrument ('engine') or external MIDI. Old projects' 'instrument' tracks
 // become engine tracks on the pad instrument.

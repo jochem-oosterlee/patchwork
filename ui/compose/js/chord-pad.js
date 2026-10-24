@@ -5187,8 +5187,8 @@ arrSetTool(SEQ.arrTool);
 })();
 setRollTool('none');
 
-// Standalone only: inside Patchwork's shell the engine serves these files
-// fresh (no-store) and a service worker would just get in the way of edits.
-if ('serviceWorker' in navigator && !document.documentElement.classList.contains('embed')) {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+// No service worker / PWA layer in this fork: the engine serves these files
+// fresh (no-store) and the app lives inside Patchwork's window.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
 }
