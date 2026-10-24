@@ -180,6 +180,25 @@ embed verborgen. link.js centreert de piano roll opnieuw na layout
 Dev: `compose_action eval <js>` logt het resultaat via `ui_log` in het
 engine-log (`scratchpad/evalrelay.py`).
 
+Piano roll trackmodus (`js/trackroll.js`): schakelaar Clip | Track in de
+roll-toolbar. Trackmodus wikkelt `focusedClipObjects()`: de roll krijgt een
+virtuele clip over de hele track (start 0, beats = einde), met `notes` als
+Proxy-array over de echte clip-noten en per noot een Proxy waarvan `start`
+absoluut leest/schrijft. Schrijven: binnen eigen clip → rebase; in andere
+clip → verhuizen; buiten elke clip → eigen clip oprekken (`coverWithClip`,
+corrigeert relatieve starts); push → clip onder de noot of nieuwe clip van
+één maat; splice → uit eigen clip. Volgorde = arrangement-volgorde (stabiel
+voor index-gebaseerd wissen tot de volgende render). Clips als `.pr-clip-band`
+achter de noten. Undo/autosave/engine zien alleen echte clips.
+
+Instrumentenpaneel (embed, link.js): `#inst-float` toont `LINK.presets`
+(instrumenten van de huidige patchset) als sleepbare chips; drop op
+trackkop/lane → `track.output='engine'`, `engineTarget=id`; drop op pads/
+keyboard of klik → live instrument (`LINK.padTarget`, gesynchroniseerd met de
+LIVE-keuze in de schil). Trackkoppen krijgen een chip met de instrumentnaam
+(`.seq-th-inst`: eigen = accent, live = gestippeld, midi). Toggle via de
+titelbalk (`toggleSection instruments` → `body.hide-instruments`).
+
 Zwevende panelen (besloten 2026-10-24 avond): tracks + piano roll zijn het
 nummer en staan vast in de pagina; chord pad (`#cp-float`, wrapper om
 tabs-header/tabs/pages), keyboard (`#keyboard-panel`) en chord view

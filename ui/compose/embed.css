@@ -72,6 +72,41 @@ html.embed #cp-float .card { margin: 8px; padding: 16px 24px 14px 36px; }   /* r
 /* keyboard panel internals */
 html.embed #keyboard-panel .kb-header-row .chord-analyzer { flex: 1; }
 html.embed #keyboard-panel .kb-wrap { padding: 10px 14px 12px; flex: 1; min-height: 0; }
+/* instruments panel */
+html.embed body.hide-instruments #inst-float { display: none !important; }
+html.embed #inst-float .inst-head { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
+html.embed .inst-list { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+html.embed .inst-empty { color: var(--text-faint); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; text-align: center; padding: 18px 8px; line-height: 1.6; }
+html.embed .inst-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11px;
+  cursor: grab; user-select: none;
+}
+html.embed .inst-chip:hover { border-color: rgba(255,255,255,0.3); }
+html.embed .inst-chip.dragging { opacity: 0.5; }
+html.embed .inst-chip.live { border-color: rgba(255,170,51,0.55); background: rgba(255,170,51,0.08); color: var(--accent); }
+html.embed .inst-dot { width: 6px; height: 6px; border-radius: 50%; background: #2a2c30; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
+html.embed .inst-chip.loaded .inst-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px rgba(255,170,51,0.4); }
+html.embed .inst-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* drop feedback + the instrument chip in track headers */
+html.embed .inst-drop { outline: 2px solid var(--accent); outline-offset: -2px; background-color: rgba(255,170,51,0.08) !important; }
+html.embed .seq-th-inst {
+  margin-left: auto;
+  max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 9px; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 10px;
+  border: 1px solid var(--panel-edge);
+  color: var(--text-dim);
+}
+html.embed .seq-th-inst.own  { color: var(--accent); border-color: rgba(255,170,51,0.4); }
+html.embed .seq-th-inst.live { border-style: dashed; }
+html.embed .seq-th-inst.midi { color: var(--text-dim); }
+
 /* chord view panel internals */
 html.embed #seq-chordview .seq-chordview-body { flex: 1; min-height: 0; margin: 10px 14px 12px; }
 

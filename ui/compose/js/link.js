@@ -68,6 +68,8 @@ function linkOnEvent(m) {
     case 'state':
       LINK.presets = Array.isArray(m.presets) ? m.presets.map(p => ({ id: p.id, name: p.name, loaded: !!p.loaded })) : [];
       linkRenderBadge();
+      linkRenderInstruments();
+      linkDecorateTracks();
       break;
     case 'transport':
       linkOnTransport(m);
@@ -283,6 +285,7 @@ function linkSectionStates() {
   document.querySelectorAll('.header-section-toggle[data-section]').forEach(b => {
     out[b.dataset.section] = b.classList.contains('active');
   });
+  out.instruments = !document.body.classList.contains('hide-instruments');
   return out;
 }
 function linkPostSections() { linkPostToShell({ event: 'sections', active: linkSectionStates() }); }
@@ -295,7 +298,8 @@ if (EMBED) {
     if (!m || m.type !== 'patchwork') return;
     switch (m.action) {
       case 'toggleSection':
-        document.querySelector(`.header-section-toggle[data-section="${m.arg}"]`)?.click();
+        if (m.arg === 'instruments') linkToggleInstruments();
+        else document.querySelector(`.header-section-toggle[data-section="${m.arg}"]`)?.click();
         if (m.arg === 'pianoroll' && !document.body.classList.contains('hide-pianoroll')) linkRecenterPianoRoll();
         linkClampFloats();                     // a panel that just appeared gets its place on screen
         break;
@@ -477,6 +481,132 @@ function linkFloatPanels() {
       defaults: () => ({ left: 24, top: Math.max(16, Math.round(window.innerHeight * 0.55)), width: Math.min(1000, window.innerWidth - 48) }),
     });
   }
+  // Instruments: the Rack's instruments, to drag onto tracks and pads.
+  const inst = document.createElement('div');
+  inst.id = 'inst-float';
+  inst.innerHTML = '<div class="inst-head synth-header">Instruments</div><div class="inst-list" id="inst-list"></div>';
+  document.querySelector('.app').appendChild(inst);
+  let hidden = true;
+  try { hidden = localStorage.getItem('patchwork-instruments-hidden') !== '0'; } catch (_) {}
+  document.body.classList.toggle('hide-instruments', hidden);
+  linkFloat({
+    panel: inst, handle: inst.querySelector('.inst-head'), key: 'patchwork-float-instruments', section: 'instruments',
+    defaults: () => ({ left: Math.max(16, window.innerWidth - 280), top: 16, width: 250, height: 320 }),
+  });
+  linkRenderInstruments();
+  linkWireInstrumentDrops();
+}
+
+function linkToggleInstruments() {
+  const hide = !document.body.classList.contains('hide-instruments');
+  document.body.classList.toggle('hide-instruments', hide);
+  try { localStorage.setItem('patchwork-instruments-hidden', hide ? '1' : '0'); } catch (_) {}
+  linkPostSections();
+}
+
+// ---------- instruments panel + drag/drop assignment ----------
+const INST_MIME = 'application/x-patchwork-instrument';
+
+function linkInstrumentName(id) {
+  if (!id) return '';
+  const p = LINK.presets.find(x => x.id === id);
+  return p ? p.name : '?';
+}
+
+function linkRenderInstruments() {
+  const list = document.getElementById('inst-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!LINK.presets.length) {
+    list.innerHTML = '<div class="inst-empty">no instruments in this patchset — add one in the Rack</div>';
+    return;
+  }
+  for (const p of LINK.presets) {
+    const chip = document.createElement('div');
+    chip.className = 'inst-chip' + (p.id === LINK.padTarget ? ' live' : '') + (p.loaded ? ' loaded' : '');
+    chip.draggable = true;
+    chip.title = 'drag onto a track to make it play this instrument; drop on the pads or keyboard (or click) to make it the live instrument';
+    chip.innerHTML = `<span class="inst-dot"></span><span class="inst-name">${escapeHtml(p.name)}</span>`;
+    chip.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData(INST_MIME, p.id);
+      e.dataTransfer.effectAllowed = 'copy';
+      chip.classList.add('dragging');
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    chip.addEventListener('click', () => linkSetLiveInstrument(p.id));
+    list.appendChild(chip);
+  }
+}
+
+function linkSetLiveInstrument(id) {
+  LINK.padTarget = id || '';
+  try { localStorage.setItem('patchwork-link-pad-target', LINK.padTarget); } catch (_) {}
+  linkPushModel();
+  linkPostPadTarget();
+  linkRenderInstruments();
+  linkDecorateTracks();
+}
+
+function linkAssignInstrument(track, id) {
+  if (!track) return;
+  seqCheckpoint();
+  track.output = 'engine';
+  track.engineTarget = id || '';
+  seqSave();
+  linkDecorateTracks();
+}
+
+// Small chip in each track header naming the instrument it plays.
+function linkDecorateTracks() {
+  if (!EMBED) return;
+  document.querySelectorAll('.seq-track-label[data-track-id]').forEach(label => {
+    const track = trackById(label.dataset.trackId);
+    if (!track) return;
+    let chip = label.querySelector('.seq-th-inst');
+    if (!chip) {
+      chip = document.createElement('span');
+      chip.className = 'seq-th-inst';
+      (label.querySelector('.seq-th-bot') || label).appendChild(chip);
+    }
+    let text, cls = 'seq-th-inst';
+    if (track.output === 'midi') { text = 'midi out'; cls += ' midi'; }
+    else if (track.engineTarget) { text = linkInstrumentName(track.engineTarget); cls += ' own'; }
+    else { text = LINK.padTarget ? linkInstrumentName(LINK.padTarget) : 'follow rack'; cls += ' live'; }
+    chip.className = cls;
+    chip.textContent = text;
+    chip.title = track.output === 'midi' ? 'plays external MIDI'
+      : track.engineTarget ? 'plays this instrument — drop another one here to change'
+      : 'plays the live instrument — drop an instrument here to give the track its own';
+  });
+}
+
+function linkWireInstrumentDrops() {
+  const targetOf = (el) => el && el.closest('.seq-track-label[data-track-id], .seq-lane[data-track-id], #cp-float, #keyboard-panel');
+  document.addEventListener('dragover', (e) => {
+    if (![...e.dataTransfer.types].includes(INST_MIME)) return;
+    const t = targetOf(e.target);
+    if (!t) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    t.classList.add('inst-drop');
+  });
+  document.addEventListener('dragleave', (e) => { const t = targetOf(e.target); if (t) t.classList.remove('inst-drop'); });
+  document.addEventListener('drop', (e) => {
+    const id = e.dataTransfer.getData(INST_MIME);
+    if (!id) return;
+    const t = targetOf(e.target);
+    document.querySelectorAll('.inst-drop').forEach(el => el.classList.remove('inst-drop'));
+    if (!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if (t.dataset.trackId) linkAssignInstrument(trackById(t.dataset.trackId), id);
+    else linkSetLiveInstrument(id);
+  }, true);
+}
+
+// Track headers are rebuilt from scratch on every change; keep the chip.
+if (typeof populateTrackHeader === 'function') {
+  const _populate = populateTrackHeader;
+  populateTrackHeader = function (label, track) { _populate(label, track); linkDecorateTracks(); };
 }
 
 // ---------- badge: link status + pad instrument (standalone only) ----------
