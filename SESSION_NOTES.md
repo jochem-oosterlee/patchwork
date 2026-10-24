@@ -210,7 +210,19 @@ Start-Process "build\MidiHost_artefacts\Release\Patchwork.exe"
 
 Rebuild-cyclus tijdens dev: `Get-Process Patchwork | Stop-Process -Force; cmake --build ...; Start-Process ...`
 
-Settings staan in `%APPDATA%\MidiHost\settings.json`.
+Settings staan in `%APPDATA%\MidiHost\settings.json`, het nummer in
+`compose.json` ernaast.
+
+## Overzetten naar een andere machine
+
+Kopieer de hele map `build\MidiHost_artefacts\Release\`: `Patchwork.exe`,
+`WebView2Loader.dll` en `compose\` (de build kopieert `ui/compose` daarheen).
+De C-runtime is statisch gelinkt; WebView2 Runtime zit in Windows 11 (en in
+de meeste Windows 10-installaties via Edge). De engine zoekt de compose-view
+in deze volgorde: `chordPadDir` in settings.json → `compose\` naast de exe →
+`ui/compose` in de source tree. Plugins (VST3) komen van de doelmachine zelf;
+presets wijzen naar hun pad daar. Projectbestanden (`.pwproj`) zijn gewoon
+JSON en zijn overdraagbaar, mits dezelfde plugins aanwezig zijn.
 
 ## Huidige status
 

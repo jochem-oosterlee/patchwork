@@ -271,15 +271,23 @@ public:
         ws.start (kWsPort, [this] (const juce::String& json) { onWsMessage (json); });
         http.start (kHttpPort);
 
-        // Serve the compose view (our fork of chord-pad, ui/compose) locally so
-        // it runs in a secure context (Web MIDI) and can open a ws:// link to
-        // us without mixed-content blocking. Default location: the source
-        // tree's ui/compose (override via settings.chordPadDir). Optional —
-        // skipped silently if absent.
+        // Serve the compose view (our fork of chord-pad) locally so it runs in
+        // a secure context (Web MIDI) and can open a ws:// link to us without
+        // mixed-content blocking. Looked up in this order: settings.chordPadDir,
+        // compose/ next to the exe (portable install), the source tree
+        // (dev, picks up edits on reload). Skipped silently if none exists.
         {
-            juce::File cpDir = settings.chordPadDir.isNotEmpty()
-                ? juce::File (settings.chordPadDir)
-                : juce::File (PATCHWORK_UI_DIR).getChildFile ("compose");
+            const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+            juce::File cpDir;
+            if (settings.chordPadDir.isNotEmpty())
+                cpDir = juce::File (settings.chordPadDir);
+            else if (exeDir.getChildFile ("compose").getChildFile ("chord-pad.html").existsAsFile()
+                     && ! juce::File (PATCHWORK_UI_DIR).getChildFile ("compose").isDirectory())
+                cpDir = exeDir.getChildFile ("compose");
+            else if (juce::File (PATCHWORK_UI_DIR).getChildFile ("compose").isDirectory())
+                cpDir = juce::File (PATCHWORK_UI_DIR).getChildFile ("compose");
+            else
+                cpDir = exeDir.getChildFile ("compose");
             if (cpDir.isDirectory())
             {
                 chordPad.start (kChordPadPort, cpDir, "chord-pad.html");

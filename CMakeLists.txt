@@ -4,6 +4,9 @@ project(MidiHost VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Static C runtime: the exe runs on a machine without the VC++ redistributable.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 include(FetchContent)
 
 # JUCE — audio framework + VST3 hosting
@@ -115,11 +118,17 @@ target_include_directories(MidiHost PRIVATE
     "${webview2_SOURCE_DIR}/build/native/include"
 )
 
-# Copy WebView2Loader.dll next to the exe at build time.
+# Copy WebView2Loader.dll and the compose view next to the exe at build time,
+# so the artefacts folder is a complete, portable install: Patchwork.exe +
+# WebView2Loader.dll + compose/. The engine serves compose/ from beside the exe
+# when it's there, otherwise from the source tree (dev).
 add_custom_command(TARGET MidiHost POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${webview2_SOURCE_DIR}/build/native/x64/WebView2Loader.dll"
         "$<TARGET_FILE_DIR:MidiHost>/WebView2Loader.dll"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/ui/compose"
+        "$<TARGET_FILE_DIR:MidiHost>/compose"
 )
 
 # Bundle the UI as resources so we can serve them from the engine without
