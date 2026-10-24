@@ -24,6 +24,8 @@ const LINK = {
   _saveTimer: null,
   _suppressSaveUntil: 0,
   _retry: null,
+  _floatZ: 800,                  // z-index of the frontmost floating panel
+  _floatClamps: [],              // one keep-on-screen function per floating panel
 };
 
 try { LINK.padTarget = localStorage.getItem('patchwork-link-pad-target') || ''; } catch (_) {}
@@ -371,9 +373,9 @@ if (EMBED) {
 // title row, resize at the corner, click to bring to front; position and
 // size are remembered per panel. The section buttons in the shell's title
 // bar show/hide them through the usual body.hide-<section> classes.
-let _floatZ = 800;
-const _floatClamps = [];
-function linkClampFloats() { requestAnimationFrame(() => _floatClamps.forEach(fn => fn())); }
+// (state for the panels lives on LINK: this code runs from the init block
+// above, before any let/const declared down here would exist)
+function linkClampFloats() { requestAnimationFrame(() => LINK._floatClamps.forEach(fn => fn())); }
 function linkFloat({ panel, handle, key, section, defaults, hideTitle }) {
   if (!panel || !handle) return;
   panel.classList.add('pw-float');
@@ -409,10 +411,10 @@ function linkFloat({ panel, handle, key, section, defaults, hideTitle }) {
   if (typeof saved.height === 'number' || d.height) panel.style.height = (typeof saved.height === 'number' ? saved.height : d.height) + 'px';
   panel.style.left = (typeof saved.left === 'number' ? saved.left : d.left) + 'px';
   panel.style.top  = (typeof saved.top  === 'number' ? saved.top  : d.top)  + 'px';
-  _floatClamps.push(clamp);
+  LINK._floatClamps.push(clamp);
   requestAnimationFrame(clamp);
 
-  panel.addEventListener('pointerdown', () => { panel.style.zIndex = String(++_floatZ); });
+  panel.addEventListener('pointerdown', () => { panel.style.zIndex = String(++LINK._floatZ); });
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || e.target.closest('button, select, input')) return;
     e.preventDefault();
