@@ -20,17 +20,11 @@ html.embed .header,
 html.embed .section-mini-toolbar,
 html.embed #link-badge { display: none !important; }
 
-/* the status bar of the shell is the transport (play/stop/loop/metronome/
-   tempo/time signature/clock); the tracks row keeps only editing controls:
-   cursor navigation and record + count-in */
-html.embed #seq-loop-btn,
-html.embed #seq-stop-btn,
-html.embed #seq-play-btn,
-html.embed #seq-metro-btn,
-html.embed #seq-timesig,
-html.embed .seq-tempo-wrap,
-html.embed .seq-clock-sync,
-html.embed #seq-rec-btn + .seq-tool-sep + .seq-nav-group + .seq-tool-sep { display: none !important; }
+/* the status bar of the shell is the whole transport (play/stop/loop/
+   metronome/tempo/time signature/clock, cursor navigation and record), so
+   the tracks panel's own control row goes; its buttons stay in the DOM
+   because the shell drives them over postMessage */
+html.embed .seq-controls { display: none !important; }
 
 /* Web Audio has no role here: pads, keyboard and tracks all play Patchwork
    instruments. Hide chord-pad's own voice controls — the GM instrument
@@ -61,6 +55,7 @@ html.embed select:hover { border-color: rgba(255,255,255,0.35); }
    scrollbar, which `*` doesn't reach */
 html.embed,
 html.embed * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+/* dark scheme on both sides keeps the frame transparent onto the shell's base */
 html.embed { color-scheme: dark; }
 html.embed ::-webkit-scrollbar         { width: 6px; height: 6px; }
 html.embed ::-webkit-scrollbar-track   { background: transparent; }

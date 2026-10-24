@@ -174,7 +174,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.fillAll (juce::Colour (0xff141619));
+        g.fillAll (juce::Colour (0xff121212));   // same neutral base as the web UI
         g.setColour (juce::Colour (0x18ffffff));
         g.fillRect (0, getHeight() - 1, getWidth(), 1);
 
@@ -622,7 +622,7 @@ public:
 
     void releaseResources() override {}
 
-    void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff0d0e10)); }
+    void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff121212)); }
 
     void resized() override
     {
@@ -2543,7 +2543,7 @@ class MainWindow : public juce::DocumentWindow
 public:
     MainWindow()
         : juce::DocumentWindow ("Patchwork",
-                                juce::Colour (0xff0d0e10),
+                                juce::Colour (0xff121212),
                                 0)
     {
         setUsingNativeTitleBar (false);

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
-<body class="hide-keyboard hide-log" style="background:#0d0e10; color:#e8e6df; margin:0;">
+<body class="hide-keyboard hide-log" style="background:#121212; color:#e8e6df; margin:0;">
   <div id="splash" class="splash">
     <div class="logo"><i data-lucide="cable"></i></div>
     <div class="title">patchwork</div>
@@ -179,8 +179,20 @@
         <span class="status-label">out</span>
         <button id="panic-btn" class="panic-btn" title="all-notes-off / all-sound-off to every live plugin (panic)"><i data-lucide="octagon-alert"></i><span>panic</span></button>
         <div class="transport" title="engine transport">
+          <span class="tr-song">
+            <button class="tr-btn tr-nav" data-nav="track-start"  title="jump to start of song"><i data-lucide="arrow-left-to-line"></i></button>
+            <button class="tr-btn tr-nav" data-nav="loop-start"   title="jump to start of loop"><i data-lucide="corner-left-down"></i></button>
+            <button class="tr-btn tr-nav" data-nav="cursor-left"  title="move cursor left (hold to repeat)"><i data-lucide="arrow-left"></i></button>
+          </span>
           <button id="tr-play" class="tr-btn" title="play (engine)"><i data-lucide="play"></i></button>
           <button id="tr-stop" class="tr-btn" title="stop"><i data-lucide="square"></i></button>
+          <span class="tr-song">
+            <button id="tr-rec" class="tr-btn tr-rec" title="record (arm; starts with play)"><i data-lucide="circle"></i></button>
+            <span id="tr-rec-beat" class="tr-rec-beat"></span>
+            <button class="tr-btn tr-nav" data-nav="cursor-right" title="move cursor right (hold to repeat)"><i data-lucide="arrow-right"></i></button>
+            <button class="tr-btn tr-nav" data-nav="loop-end"     title="jump to end of loop"><i data-lucide="corner-right-down"></i></button>
+            <button class="tr-btn tr-nav" data-nav="track-end"    title="jump to end of song"><i data-lucide="arrow-right-to-line"></i></button>
+          </span>
           <span id="tr-pos" class="tr-pos">1.1</span>
           <button id="tr-loop" class="tr-btn" title="loop (song)"><i data-lucide="repeat"></i></button>
           <button id="tr-metro" class="tr-btn" title="metronome"><i data-lucide="music-2"></i></button>

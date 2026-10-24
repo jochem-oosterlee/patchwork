@@ -1215,7 +1215,8 @@ function connect() {
         if (!document.getElementById('view-switch').hidden) setView(m.view === 'compose' ? 'compose' : 'rack');
         break;
       case 'compose_action':
-        postToCompose(m.action, m.arg);
+        if (m.action === 'shellClick') { const el = document.querySelector(m.arg); if (el) el.click(); }   // dev/test helper
+        else postToCompose(m.action, m.arg);
         break;
       case 'plugin_loaded':
         setPluginName(m.name);
@@ -1989,6 +1990,11 @@ window.addEventListener('message', (e) => {
     case 'save':
       send({ cmd: m.as ? 'project_save_as' : 'project_save' });
       break;
+    case 'rec':
+      trRec.classList.toggle('armed',  !!m.armed);
+      trRec.classList.toggle('active', !!m.active);
+      trRecBeat.textContent = m.beat || '';
+      break;
   }
 });
 document.querySelectorAll('#compose-tools .ctool').forEach(b => {
@@ -2031,6 +2037,35 @@ trMetro.addEventListener('click', () => send({ cmd: 'metronome', on: !metroOn })
 // Loop belongs to the song, so the compose frame flips it and the engine
 // reports the result back through the transport event.
 trLoop.addEventListener('click', () => postToCompose('toggleLoop'));
+// Cursor navigation and record act on the song in the compose frame. The
+// cursor-step buttons repeat while held, like the frame's own did.
+document.querySelectorAll('.tr-nav').forEach(b => {
+  const nav = b.dataset.nav;
+  const repeats = nav === 'cursor-left' || nav === 'cursor-right';
+  let holdTimer = null, repeatTimer = null, fired = false;
+  const stop = () => { clearTimeout(holdTimer); clearInterval(repeatTimer); holdTimer = repeatTimer = null; };
+  b.addEventListener('mousedown', e => { e.preventDefault(); });   // keep focus where it is
+  b.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    fired = false;
+    if (repeats) {
+      holdTimer = setTimeout(() => {
+        fired = true; postToCompose('nav', nav);
+        repeatTimer = setInterval(() => postToCompose('nav', nav), 90);
+      }, 350);
+    }
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => {
+    const wasRepeating = !!repeatTimer;
+    stop();
+    if (ev === 'pointerup' && !wasRepeating && !fired) postToCompose('nav', nav);
+    fired = false;
+  }));
+});
+const trRec = document.getElementById('tr-rec');
+const trRecBeat = document.getElementById('tr-rec-beat');
+trRec.addEventListener('mousedown', e => e.preventDefault());
+trRec.addEventListener('click', () => postToCompose('toggleRec'));
 
 window.addEventListener('load', () => {
   setTimeout(() => {

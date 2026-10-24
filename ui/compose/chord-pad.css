@@ -547,27 +547,26 @@ option { background: var(--bg); color: var(--text); }
   position: relative;
   box-shadow: none;
 }
-/* solid border on the main part */
+/* Two separate frames: a solid one around the regular chords and a dashed
+   one hugging just the Neapolitan pad. Both edges are measured in
+   updateNeapolitanSplit() so they follow the actual pad positions. */
 .minor-row.has-neapolitan::before {
   content: '';
   position: absolute;
   top: 0; left: 0; bottom: 0;
   right: var(--nea-split, calc(100% / 7));
   border: 2px solid rgba(255,255,255,0.22);
-  border-right: none;
-  border-radius: 8px 0 0 8px;
+  border-radius: 8px;
   pointer-events: none;
   z-index: 1;
 }
-/* dashed border on the neapolitan part */
 .minor-row.has-neapolitan::after {
   content: '';
   position: absolute;
   top: 0; right: 0; bottom: 0;
-  width: calc(var(--nea-split, calc(100% / 7)) - 3.5px);
+  width: var(--nea-width, calc(100% / 7));
   border: 2px dashed rgba(255,255,255,0.22);
-  border-left: none;
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   pointer-events: none;
   z-index: 1;
 }

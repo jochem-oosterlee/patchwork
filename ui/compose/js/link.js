@@ -276,6 +276,8 @@ if (EMBED) {
       case 'redo': seqRedo(); break;
       case 'toggleLoop': document.getElementById('seq-loop-btn')?.click(); break;
       case 'toggleRec':  document.getElementById('seq-rec-btn')?.click();  break;
+      case 'nav':        document.getElementById('seq-nav-' + m.arg)?.click(); break;
+      case 'click':      document.querySelector(m.arg)?.click(); break;   // dev/test helper
       case 'scrollTo': window.scrollTo(0, +m.arg || 0); break;
       case 'query': linkPostSections(); linkPostPadTarget(); break;
       default: break;
@@ -285,6 +287,18 @@ if (EMBED) {
   const obs = new MutationObserver(linkPostSections);
   document.querySelectorAll('.header-section-toggle[data-section]').forEach(b =>
     obs.observe(b, { attributes: true, attributeFilter: ['class'] }));
+  // Likewise the record button's armed/active state and the count-in beat.
+  const recBtn = document.getElementById('seq-rec-btn');
+  const recBeat = document.getElementById('seq-rec-beat');
+  const postRec = () => linkPostToShell({
+    event: 'rec',
+    armed:  !!recBtn?.classList.contains('armed'),
+    active: !!recBtn?.classList.contains('active'),
+    beat:   (recBeat?.textContent || '').trim(),
+  });
+  if (recBtn)  new MutationObserver(postRec).observe(recBtn,  { attributes: true, attributeFilter: ['class'] });
+  if (recBeat) new MutationObserver(postRec).observe(recBeat, { childList: true, characterData: true, subtree: true });
+  postRec();
   // View switch shortcuts work with focus inside the frame too.
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === '1' || e.key === '2')) {

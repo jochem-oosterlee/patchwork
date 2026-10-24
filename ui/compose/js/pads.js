@@ -572,7 +572,14 @@ function updateNeapolitanSplit() {
     if (!firstCell || !lastCell) return;
     const leftPad     = firstCell.getBoundingClientRect().left - rowRect.left;
     const splitFromLeft = lastCell.getBoundingClientRect().right - rowRect.left + leftPad;
+    // Solid frame ends one padding past the last regular pad …
     row.style.setProperty('--nea-split', (rowRect.width - splitFromLeft) + 'px');
+    // … and the dashed frame starts one padding before the Neapolitan pad.
+    const neaCell = row.querySelector('.pad-cell.neapolitan');
+    if (neaCell) {
+      const neaLeft = neaCell.getBoundingClientRect().left - rowRect.left;
+      row.style.setProperty('--nea-width', (rowRect.width - neaLeft + leftPad) + 'px');
+    }
   });
 }
 
