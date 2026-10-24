@@ -119,9 +119,6 @@ body.view-compose .compose-tools { display: inline-flex; }
   font-variant-numeric: tabular-nums;
 }
 .transport.playing .tr-pos { color: var(--accent); }
-.tr-loop { display: inline-flex; align-items: center; color: var(--text-faint); padding: 0 2px; }
-.tr-loop .lucide { width: 11px; height: 11px; }
-.tr-loop.on { color: var(--accent); }
 
 /* header / titlebar */
 header.titlebar {

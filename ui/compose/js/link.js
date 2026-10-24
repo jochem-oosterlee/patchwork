@@ -113,6 +113,16 @@ function linkOnTransport(m) {
     const a = document.getElementById('seq-tempo-val'); if (a) a.value = Math.round(m.bpm * 10) / 10;
     const b = document.getElementById('ctrl-tempo');    if (b) b.value = Math.round(m.bpm * 10) / 10;
   }
+  // Time signature follows the engine (the shell's 4/4 widget sets it): the
+  // grid's bar lines and the loop default come from state.beatsPerBar.
+  if (EMBED && typeof m.tsNum === 'number' && m.tsNum >= 1 && m.tsNum !== state.beatsPerBar) {
+    const sel = document.getElementById('seq-timesig');
+    if (sel) {
+      sel.value = String(m.tsNum);
+      if (sel.value === String(m.tsNum)) sel.dispatchEvent(new Event('change'));   // one of ours: full re-render
+      else { state.beatsPerBar = m.tsNum; if (typeof seqUpdateBarLine === 'function') seqUpdateBarLine(); }
+    }
+  }
   if (!LINK.active) return;
   if (e.playing && !SEQ.playing) linkEnterPlaying();
   else if (!e.playing && SEQ.playing) linkEnterStopped();
@@ -126,7 +136,7 @@ function linkEnterPlaying() {
   document.querySelectorAll('.seq-playhead').forEach(ph => {
     if (!ph.closest('#seq-pianoroll-body')) ph.style.display = 'block';
   });
-  if (METRO.enabled) linkSend({ cmd: 'metronome', on: true });
+  if (METRO.enabled && !EMBED) linkSend({ cmd: 'metronome', on: true });
   if (!SEQ.rafId) seqAnimatePlayhead();
 }
 
@@ -264,6 +274,8 @@ if (EMBED) {
         break;
       case 'undo': seqUndo(); break;
       case 'redo': seqRedo(); break;
+      case 'toggleLoop': document.getElementById('seq-loop-btn')?.click(); break;
+      case 'toggleRec':  document.getElementById('seq-rec-btn')?.click();  break;
       case 'scrollTo': window.scrollTo(0, +m.arg || 0); break;
       case 'query': linkPostSections(); linkPostPadTarget(); break;
       default: break;
@@ -341,9 +353,11 @@ seqStop = function () {
   linkSend({ cmd: 'transport_stop' });     // the engine's transport event completes the stop
 };
 
+// Cursor moves always reach the engine, also while stopped, so Play from the
+// shell starts where the compose cursor stands.
 seqJumpToBeat = function (beat) {
   const r = _linkOrig.seqJumpToBeat(beat);
-  if (LINK.active && SEQ.playing) linkSend({ cmd: 'transport_seek', beat: Math.max(0, beat) * linkBeatScale() });
+  if (LINK.active) linkSend({ cmd: 'transport_seek', beat: Math.max(0, beat) * linkBeatScale() });
   return r;
 };
 
@@ -400,9 +414,11 @@ startBassNote = function (midiNote, at = null, autoRelease = null, instrumentOve
 };
 
 // Metronome clicks in the engine, out the same interface as the plugins.
-metroRun       = function (t, b) { if (!LINK.active) return _linkOrig.metroRun(t, b);  linkSend({ cmd: 'metronome', on: !!METRO.enabled }); };
-metroRunSynced = function ()     { if (!LINK.active) return _linkOrig.metroRunSynced(); linkSend({ cmd: 'metronome', on: !!METRO.enabled }); };
-metroHalt      = function ()     { if (!LINK.active) return _linkOrig.metroHalt();      linkSend({ cmd: 'metronome', on: false }); };
+// Embedded, the shell's status-bar button owns the engine metronome and we
+// leave it alone; standalone-linked, our own button drives it.
+metroRun       = function (t, b) { if (!LINK.active) return _linkOrig.metroRun(t, b);  if (!EMBED) linkSend({ cmd: 'metronome', on: !!METRO.enabled }); };
+metroRunSynced = function ()     { if (!LINK.active) return _linkOrig.metroRunSynced(); if (!EMBED) linkSend({ cmd: 'metronome', on: !!METRO.enabled }); };
+metroHalt      = function ()     { if (!LINK.active) return _linkOrig.metroHalt();      if (!EMBED) linkSend({ cmd: 'metronome', on: false }); };
 
 applyTempoChange = function () {
   _linkOrig.applyTempoChange();

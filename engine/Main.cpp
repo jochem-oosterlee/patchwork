@@ -734,11 +734,13 @@ private:
         }
 
         // Transport position for the UIs' playheads: every tick while playing,
-        // plus one message when play/stop flips.
+        // plus one message when play/stop flips or the cursor moves while stopped.
         {
-            const bool p = seq.isPlaying();
-            if (p || p != lastTransportPlaying) broadcastTransport();
+            const bool   p    = seq.isPlaying();
+            const double beat = seq.positionBeats();
+            if (p || p != lastTransportPlaying || beat != lastTransportBeat) broadcastTransport();
             lastTransportPlaying = p;
+            lastTransportBeat    = beat;
         }
 
         // Re-scan available MIDI devices every couple of seconds. If the set
@@ -2153,6 +2155,7 @@ private:
     Sequencer         seq;
     juce::StringArray seqTargets;                 // instrument ids the current song uses (kept loaded)
     bool              lastTransportPlaying = false;
+    double            lastTransportBeat    = -1.0;
     std::atomic<int>  seqNotesFired { 0 };
 
     // Engine metronome — clicks on each beat of the (chord-pad-driven) play-head,

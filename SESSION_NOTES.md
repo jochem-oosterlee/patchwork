@@ -80,9 +80,16 @@ De compose-toggles en de pads-instrumentkeuze staan in de titelbalk van de schil
 Compose-view naar het nummer, in Rack-view naar de rack. Engine-relay voor
 tests/controllers: `show_view {view}` en `compose_action {action, arg}`.
 
-Nog dubbel: compose heeft in het Tracks-paneel een eigen transportrij (incl.
-tempo, maatsoort, rec, loop-navigatie) naast het engine-transport in de
-statusbalk. Samenvoegen is een volgende stap.
+Eén transport: de statusbalk van de schil (play/stop/positie/loop/metronoom/
+tempo/maatsoort/clock). In embed verbergt `embed.css` compose's eigen
+play/stop/loop/metronoom/tempo/maatsoort/clock; de Tracks-rij houdt
+cursor-navigatie en record (+ count-in). Loop-knop in de schil → `toggleLoop`
+naar het frame (loop zit in het songmodel); metronoom in de schil → engine
+(`metroOn`), en embedded laat link.js de engine-metronoom met rust. Maatsoort
+volgt de engine (`tsNum` in transport → `state.beatsPerBar`). Cursor-sprongen
+sturen altijd `transport_seek`, ook gestopt, zodat Play vanuit de schil start
+waar de compose-cursor staat; de engine broadcast transport ook bij een
+positieverandering in rust.
 
 Opruimpunten voor de compose-fork (alleen laptopgebruik, besloten 2026-10-24):
 touch-glide en touch-handlers, mobiele media queries, PWA-manifest + sw.js

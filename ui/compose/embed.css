@@ -20,6 +20,18 @@ html.embed .header,
 html.embed .section-mini-toolbar,
 html.embed #link-badge { display: none !important; }
 
+/* the status bar of the shell is the transport (play/stop/loop/metronome/
+   tempo/time signature/clock); the tracks row keeps only editing controls:
+   cursor navigation and record + count-in */
+html.embed #seq-loop-btn,
+html.embed #seq-stop-btn,
+html.embed #seq-play-btn,
+html.embed #seq-metro-btn,
+html.embed #seq-timesig,
+html.embed .seq-tempo-wrap,
+html.embed .seq-clock-sync,
+html.embed #seq-rec-btn + .seq-tool-sep + .seq-nav-group + .seq-tool-sep { display: none !important; }
+
 /* the settings popover used to hang under the gear in our header; now it
    opens top-right of the frame, under the shell's gear */
 html.embed #settings-panel { top: 8px !important; right: 8px !important; }

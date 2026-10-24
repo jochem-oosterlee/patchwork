@@ -1903,6 +1903,9 @@ function applyTransport(m) {
 trPlay.addEventListener('click', () => send({ cmd: 'transport_play' }));
 trStop.addEventListener('click', () => send({ cmd: 'transport_stop' }));
 trMetro.addEventListener('click', () => send({ cmd: 'metronome', on: !metroOn }));
+// Loop belongs to the song, so the compose frame flips it and the engine
+// reports the result back through the transport event.
+trLoop.addEventListener('click', () => postToCompose('toggleLoop'));
 
 window.addEventListener('load', () => {
   setTimeout(() => {
