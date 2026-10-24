@@ -15,6 +15,16 @@ html.embed .app {
   box-shadow: none;
 }
 
+/* Fill the frame: the page is a column that is at least as tall as the
+   view, and the piano roll takes whatever room the other panels leave. With
+   pads and keyboard hidden it stretches to the status bar; with everything
+   shown the page scrolls as before. The drag handle is pointless then. */
+html.embed body { min-height: 100vh; display: flex; flex-direction: column; }
+html.embed .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+html.embed .seq-pianoroll { flex: 1; min-height: 0; }
+html.embed .seq-pianoroll-body { flex: 1; height: auto !important; max-height: none; min-height: 320px; }
+html.embed .seq-pianoroll-resize { display: none; }
+
 /* the shell's title bar carries the section toggles (driven over postMessage) */
 html.embed .header,
 html.embed .section-mini-toolbar,

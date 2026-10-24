@@ -70,6 +70,9 @@ function linkOnEvent(m) {
     case 'transport':
       linkOnTransport(m);
       break;
+    case 'midi_note':
+      if (LINK.active) linkMirrorNote(m.note | 0, !!m.on && (m.vel | 0) > 0);
+      break;
     case 'load_project':
       if (m.data && typeof m.data === 'object') {
         LINK._suppressSaveUntil = performance.now() + 1500;   // don't echo the project straight back
@@ -215,6 +218,17 @@ function linkNoteOff(token) {
   if (token.timer) { clearTimeout(token.timer); token.timer = null; }
   if (!token.fired) return;      // cancelled before its scheduled attack
   linkSend({ cmd: 'note', on: false, note: token.midi, vel: 0, ch: 1, target: token.target });
+}
+
+// ---------- controller mirroring ----------
+// A note played on a controller is already sounding through the Rack. Show
+// it on the keyboard, feed the analyzer and let REC capture it — but don't
+// play it a second time: the voice/MIDI wrappers below are muted meanwhile.
+function linkMirrorNote(midi, on) {
+  if (midi < 0 || midi > 127) return;
+  LINK._mirror = true;
+  try { on ? kbNoteOn(midi, true) : kbNoteOff(midi, true); }
+  finally { LINK._mirror = false; }
 }
 
 // ---------- record count-in ----------
@@ -366,9 +380,13 @@ const _linkOrig = {
   makeTrack,
   seqPlay, seqStop, seqJumpToBeat, seqSave, seqTick, seqAnimatePlayhead,
   seqLoopBaseChangedResync, seqResyncTrack, seqResyncTrackThrottled, seqResyncAllThrottled,
-  startAudioNote, stopAudioNote, startBassNote,
+  startAudioNote, stopAudioNote, startBassNote, sendNoteOn, sendNoteOff,
   metroRun, metroRunSynced, metroHalt, applyTempoChange, recCurrentBeat,
 };
+
+// Web MIDI out stays quiet while a controller note is being mirrored.
+sendNoteOn  = function (...a) { if (LINK._mirror) return; return _linkOrig.sendNoteOn(...a); };
+sendNoteOff = function (...a) { if (LINK._mirror) return; return _linkOrig.sendNoteOff(...a); };
 
 // Embedded, the 148 MB GM soundfont is never needed (no in-app voice) — stop
 // audio.js from fetching it on startup. Its callers cope with a null result.
@@ -437,6 +455,7 @@ seqAnimatePlayhead = function () {
 // Live voices become engine notes. The returned token stands in for the
 // audio node so release paths (stopAudioNote, kbActive, activeChords) work.
 startAudioNote = function (midiNote, velocity, at = null, autoRelease = null, instrumentOverride = null) {
+  if (LINK._mirror) return { link: true, midi: midiNote, fired: false, off: true };   // visual only
   if (!LINK.active) return _linkOrig.startAudioNote(midiNote, velocity, at, autoRelease, instrumentOverride);
   const token = { link: true, midi: midiNote, target: LINK.padTarget, fired: false, off: false, timer: null, oscs: [] };
   const ctx = getAudioCtx();

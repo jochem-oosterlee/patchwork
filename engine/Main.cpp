@@ -677,6 +677,21 @@ private:
                 pendingActivePresets.addIfNotAlreadyThere (p.id);
             }
         }
+
+        // Mirror notes from real controllers to the UIs (the compose view shows
+        // them on its keyboard and in the chord analyzer, and can record them).
+        // Notes that came from the compose view itself are not echoed back.
+        if ((m.isNoteOn() || m.isNoteOff()) && source != MidiManager::kChordPadInput)
+        {
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("event",  "midi_note");
+            o->setProperty ("source", source);
+            o->setProperty ("note",   m.getNoteNumber());
+            o->setProperty ("vel",    (int) m.getVelocity());
+            o->setProperty ("on",     m.isNoteOn());
+            o->setProperty ("ch",     m.getChannel());
+            ws.broadcast (juce::var (o.get()));
+        }
     }
 
     bool thruSourceMatches (const juce::String& source, const juce::MidiMessage& m)

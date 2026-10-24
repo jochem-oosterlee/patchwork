@@ -163,8 +163,16 @@ Native titelbalk toont geen status meer. Metronoom-icoon = `metronome`.
 Dev-helpers over de relay: `compose_action click <selector>` (in het frame)
 en `shellClick <selector>` (in de schil).
 
-Nog open uit de rondgang: Compose als gevulde layout (tracks + piano roll
-vullen het venster, pads/keyboard inklapbaar) i.p.v. lange scrollpagina.
+Controller → compose: de engine broadcast `midi_note {source, note, vel, on,
+ch}` voor noot-aan/uit van echte bronnen (niet van `chord-pad` zelf); link.js
+spiegelt die via `kbNoteOn/Off` met `LINK._mirror` gezet, waardoor de
+voice-/Web-MIDI-wrappers zwijgen (de Rack speelt al) maar keyboard-highlight,
+analyzer en REC gewoon werken.
+
+Gevulde layout (embed): body/app zijn een kolom van minimaal de framehoogte;
+`.seq-pianoroll` krijgt `flex:1` en de body `height:auto` (min 320 px), dus
+met pads/keyboard dicht vult de piano roll tot de statusbalk; met alles open
+scrolt de pagina als voorheen. De resize-handle is in embed verborgen.
 
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
