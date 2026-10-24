@@ -180,6 +180,17 @@ embed verborgen. link.js centreert de piano roll opnieuw na layout
 Dev: `compose_action eval <js>` logt het resultaat via `ui_log` in het
 engine-log (`scratchpad/evalrelay.py`).
 
+Zwevende panelen (besloten 2026-10-24 avond): tracks + piano roll zijn het
+nummer en staan vast in de pagina; chord pad (`#cp-float`, wrapper om
+tabs-header/tabs/pages), keyboard (`#keyboard-panel`) en chord view
+(`#seq-chordview`) zijn `.pw-float`-panelen: `position: fixed`, slepen aan de
+kopregel (`.pw-float-handle`, met ✕ die de sectie-toggle aanroept), `resize:
+both`, klik = naar voren, positie/grootte per paneel in localStorage
+(`patchwork-float-*`). Tonen/verbergen via de bestaande `body.hide-<sectie>`
+klassen (titelbalkknoppen). Verborgen panelen worden niet geklemd (rect 0);
+na een toggle klemt `linkClampFloats()` ze op het scherm. Kaart in het pads-
+paneel houdt 36 px links voor de verbindingspijlen.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).

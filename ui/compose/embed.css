@@ -31,6 +31,50 @@ html.embed .seq-pianoroll-resize { display: none; }
    land on the piano roll, and the shortcuts are in the tooltips anyway */
 html.embed .help { display: none !important; }
 
+/* floating panels: chord pad, keyboard and chord view float over the song
+   (tracks + piano roll stay in the page); see linkFloat / linkFloatPanels */
+html.embed .pw-float {
+  position: fixed; z-index: 800;
+  min-width: 420px; min-height: 120px;
+  max-width: calc(100vw - 16px); max-height: calc(100vh - 16px);
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--panel-edge) !important;
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 48px rgba(0,0,0,0.65);
+  overflow: hidden;
+  resize: both;
+  padding: 0 !important;
+}
+html.embed body.hide-chord-pad #cp-float { display: none !important; }
+html.embed .pw-float-handle {
+  display: flex !important; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 14px !important;
+  margin: 0 !important;
+  border-top: 0; border-bottom: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.02);
+  cursor: move; user-select: none;
+  flex-shrink: 0;
+}
+html.embed .pw-float-handle > :first-child { flex: 0 0 auto; }
+html.embed .pw-float-close {
+  margin-left: auto;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--text-dim); font-size: 11px; line-height: 1; padding: 3px 6px; cursor: pointer;
+}
+html.embed .pw-float-close:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+/* chord pad panel internals */
+html.embed #cp-float .tabs-header-chev { display: none; }
+html.embed #cp-float .tabs { flex-shrink: 0; }
+html.embed #cp-float .page { overflow: auto; min-height: 0; }
+html.embed #cp-float .page.active { display: block; flex: 1 1 auto; }
+html.embed #cp-float .card { margin: 8px; padding: 16px 24px 14px 36px; }   /* room for the flow arrows on the left */
+/* keyboard panel internals */
+html.embed #keyboard-panel .kb-header-row .chord-analyzer { flex: 1; }
+html.embed #keyboard-panel .kb-wrap { padding: 10px 14px 12px; flex: 1; min-height: 0; }
+/* chord view panel internals */
+html.embed #seq-chordview .seq-chordview-body { flex: 1; min-height: 0; margin: 10px 14px 12px; }
+
 /* the shell's title bar carries the section toggles (driven over postMessage) */
 html.embed .header,
 html.embed .section-mini-toolbar,

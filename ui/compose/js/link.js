@@ -295,6 +295,7 @@ if (EMBED) {
       case 'toggleSection':
         document.querySelector(`.header-section-toggle[data-section="${m.arg}"]`)?.click();
         if (m.arg === 'pianoroll' && !document.body.classList.contains('hide-pianoroll')) linkRecenterPianoRoll();
+        linkClampFloats();                     // a panel that just appeared gets its place on screen
         break;
       case 'setPadTarget':
         LINK.padTarget = m.arg || '';
@@ -353,6 +354,7 @@ if (EMBED) {
       linkPostToShell({ event: 'save', as: e.shiftKey });
     }
   });
+  linkFloatPanels();
   // The pad modal's output toggle: its "Instrument" option is the engine here.
   const padOut = document.querySelector('#chord-pad-modal .track-fx-out-btn[data-out="instrument"]');
   if (padOut) padOut.textContent = 'Engine';
@@ -361,6 +363,118 @@ if (EMBED) {
   linkPostPadTarget();
   linkPostPrefs();
   linkRecenterPianoRoll();
+}
+
+// ---------- floating panels (embedded) ----------
+// Tracks and piano roll are the song and stay put. The playing surfaces —
+// chord pad, keyboard — and the chord view float over them: drag by the
+// title row, resize at the corner, click to bring to front; position and
+// size are remembered per panel. The section buttons in the shell's title
+// bar show/hide them through the usual body.hide-<section> classes.
+let _floatZ = 800;
+const _floatClamps = [];
+function linkClampFloats() { requestAnimationFrame(() => _floatClamps.forEach(fn => fn())); }
+function linkFloat({ panel, handle, key, section, defaults, hideTitle }) {
+  if (!panel || !handle) return;
+  panel.classList.add('pw-float');
+
+  const close = document.createElement('button');
+  close.className = 'pw-float-close';
+  close.title = hideTitle || 'hide (the button in the title bar shows it again)';
+  close.textContent = '✕';
+  close.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelector(`.header-section-toggle[data-section="${section}"]`)?.click();
+  });
+  handle.appendChild(close);
+  handle.classList.add('pw-float-handle');
+
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
+  const clamp = () => {
+    const r = panel.getBoundingClientRect();
+    if (r.width === 0) return;                      // hidden: nothing to keep on screen
+    const maxL = Math.max(8, window.innerWidth  - r.width  - 8);
+    const maxT = Math.max(8, window.innerHeight - r.height - 8);
+    panel.style.left = Math.min(Math.max(8, r.left), maxL) + 'px';
+    panel.style.top  = Math.min(Math.max(8, r.top),  maxT) + 'px';
+  };
+  const persist = () => {
+    const r = panel.getBoundingClientRect();
+    if (r.width === 0) return;                      // hidden: nothing to remember
+    try { localStorage.setItem(key, JSON.stringify({ left: r.left, top: r.top, width: r.width, height: r.height })); } catch (_) {}
+  };
+  const d = defaults();
+  panel.style.width  = (typeof saved.width  === 'number' ? saved.width  : d.width)  + 'px';
+  if (typeof saved.height === 'number' || d.height) panel.style.height = (typeof saved.height === 'number' ? saved.height : d.height) + 'px';
+  panel.style.left = (typeof saved.left === 'number' ? saved.left : d.left) + 'px';
+  panel.style.top  = (typeof saved.top  === 'number' ? saved.top  : d.top)  + 'px';
+  _floatClamps.push(clamp);
+  requestAnimationFrame(clamp);
+
+  panel.addEventListener('pointerdown', () => { panel.style.zIndex = String(++_floatZ); });
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button, select, input')) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const r = panel.getBoundingClientRect();
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const move = (ev) => { panel.style.left = (ev.clientX - dx) + 'px'; panel.style.top = (ev.clientY - dy) + 'px'; };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      clamp(); persist();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  });
+
+  // A resize changes the content width: let the layout code re-measure (it
+  // listens to window resize), then remember the new size.
+  let resizeTimer = null;
+  new ResizeObserver(() => {
+    window.dispatchEvent(new Event('resize'));
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(persist, 200);
+  }).observe(panel);
+  window.addEventListener('resize', clamp);
+}
+
+function linkFloatPanels() {
+  // Chord pad: wrap its heading, tabs and pages in one panel.
+  const header = document.querySelector('.tabs-header');
+  const nav    = document.getElementById('tabs-nav');
+  if (header && nav) {
+    const panel = document.createElement('div');
+    panel.id = 'cp-float';
+    header.parentNode.insertBefore(panel, header);
+    panel.appendChild(header);
+    panel.appendChild(nav);
+    document.querySelectorAll('.page').forEach(p => panel.appendChild(p));
+    header.innerHTML = '<span>Chord pad</span>';
+    linkFloat({
+      panel, handle: header, key: 'patchwork-float-pads', section: 'chord-pad',
+      defaults: () => ({ left: 24, top: 16, width: Math.min(900, window.innerWidth - 48) }),
+    });
+  }
+  // Keyboard: the panel as it is; its header row (label + analyzer) is the handle.
+  const kb = document.getElementById('keyboard-panel');
+  const kbHandle = kb && kb.querySelector('.kb-header-row');
+  if (kb && kbHandle) {
+    linkFloat({
+      panel: kb, handle: kbHandle, key: 'patchwork-float-keyboard', section: 'keyboard',
+      defaults: () => ({ left: 24, top: Math.max(16, window.innerHeight - 240), width: Math.min(1180, window.innerWidth - 48) }),
+    });
+  }
+  // Chord view: likewise, with its header (label + track picker) as handle.
+  const cv = document.getElementById('seq-chordview');
+  const cvHandle = cv && cv.querySelector('.seq-chordview-header');
+  if (cv && cvHandle) {
+    linkFloat({
+      panel: cv, handle: cvHandle, key: 'patchwork-float-chordview', section: 'chordview',
+      defaults: () => ({ left: 24, top: Math.max(16, Math.round(window.innerHeight * 0.55)), width: Math.min(1000, window.innerWidth - 48) }),
+    });
+  }
 }
 
 // ---------- badge: link status + pad instrument (standalone only) ----------
