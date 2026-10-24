@@ -148,82 +148,23 @@ public:
     }
 };
 
-// Flat "segmented control" look for the view tabs: no default button outline,
-// a clean filled pill for the active tab, a subtle wash on hover. Keeps the
-// two tabs reading as one control that matches the rest of the flat UI.
-struct TabLookAndFeel : juce::LookAndFeel_V4
-{
-    void drawButtonBackground (juce::Graphics& g, juce::Button& b,
-                               const juce::Colour&, bool over, bool down) override
-    {
-        auto r = b.getLocalBounds().toFloat().reduced (2.0f, 3.0f);
-        if (b.getToggleState())
-        {
-            g.setColour (juce::Colour (0xff2c313a));
-            g.fillRoundedRectangle (r, 6.0f);
-            g.setColour (juce::Colour (0x16ffffff));
-            g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, 1.0f);
-        }
-        else if (over || down)
-        {
-            g.setColour (juce::Colour (down ? 0x14ffffff : 0x0affffff));
-            g.fillRoundedRectangle (r, 6.0f);
-        }
-    }
-    void drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool) override
-    {
-        const bool on = b.getToggleState();
-        g.setColour (b.findColour (on ? juce::TextButton::textColourOnId
-                                      : juce::TextButton::textColourOffId));
-        g.setFont (juce::Font (12.5f, on ? juce::Font::bold : juce::Font::plain));
-        g.drawText (b.getButtonText(), b.getLocalBounds(), juce::Justification::centred, false);
-    }
-};
-
-// Custom in-style title bar for the borderless window: app name, view tabs,
-// and minimise / maximise / close. Dragging the empty caption hands off to the
+// Custom in-style title bar for the borderless window: engine status and
+// minimise / maximise / close. Dragging the empty caption hands off to the
 // native move loop (WM_NCLBUTTONDOWN) so Windows drag + Aero Snap work; the
 // maximise button "maximises" to the monitor work area (respects the taskbar).
 class TitleBar : public juce::Component
 {
 public:
-    std::function<void (int)> onTab;
-    juce::TextButton tabPatchwork { "Patchwork" }, tabChordPad { "chord-pad" };
-
     TitleBar()
     {
         setInterceptsMouseClicks (true, true);
-        for (auto* t : { &tabPatchwork, &tabChordPad })
-        {
-            t->setClickingTogglesState (true);
-            t->setRadioGroupId (100);
-            t->setLookAndFeel (&tabLnf);
-            t->setColour (juce::TextButton::textColourOffId, juce::Colour (0xff868c96));
-            t->setColour (juce::TextButton::textColourOnId,  juce::Colour (0xffffffff));
-            addChildComponent (*t);
-        }
-        tabPatchwork.onClick = [this] { if (onTab) onTab (0); };
-        tabChordPad .onClick = [this] { if (onTab) onTab (1); };
-
         for (auto* b : { &minBtn, &maxBtn, &closeBtn }) addAndMakeVisible (*b);
         minBtn.onClick   = [this] { nativeMinimise(); };
         maxBtn.onClick   = [this] { toggleMaximise(); };
         closeBtn.onClick = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
     }
 
-    ~TitleBar() override
-    {
-        for (auto* t : { &tabPatchwork, &tabChordPad }) t->setLookAndFeel (nullptr);
-    }
-
-    void setTabsVisible (bool v) { tabsShown = v; tabPatchwork.setVisible (v); tabChordPad.setVisible (v); resized(); }
-    void setActiveTab (int i)
-    {
-        tabPatchwork.setToggleState (i == 0, juce::dontSendNotification);
-        tabChordPad .setToggleState (i == 1, juce::dontSendNotification);
-    }
-
-    // Shared engine status shown centre-right on both tabs (bar.beat + tempo).
+    // Engine status shown right of centre (bar.beat + tempo).
     void setStatus (juce::String text, bool playing)
     {
         if (text == statusText && playing == statusPlaying) return;
@@ -236,19 +177,9 @@ public:
         g.fillAll (juce::Colour (0xff141619));
         g.setColour (juce::Colour (0x18ffffff));
         g.fillRect (0, getHeight() - 1, getWidth(), 1);
-        // Segmented-control tray behind the two view tabs.
-        if (tabsShown)
-        {
-            auto seg = tabPatchwork.getBounds().getUnion (tabChordPad.getBounds())
-                          .toFloat().expanded (3.0f, 2.0f);
-            g.setColour (juce::Colour (0xff191c21));
-            g.fillRoundedRectangle (seg, 8.0f);
-            g.setColour (juce::Colour (0x12ffffff));
-            g.drawRoundedRectangle (seg.reduced (0.5f), 8.0f, 1.0f);
-        }
 
-        // Shared engine status (bar.beat + tempo) with a play/stop dot, drawn
-        // just left of the window buttons — visible on both tabs.
+        // Engine status (bar.beat + tempo) with a play/stop dot, drawn just
+        // left of the window buttons.
         if (statusText.isNotEmpty())
         {
             const int rightEdge = getWidth() - 3 * 46 - 12;   // before min/max/close
@@ -268,13 +199,6 @@ public:
         closeBtn.setBounds (r.removeFromRight (bw));
         maxBtn  .setBounds (r.removeFromRight (bw));
         minBtn  .setBounds (r.removeFromRight (bw));
-        if (tabsShown)
-        {
-            auto tabs = r.withTrimmedLeft (12).reduced (0, 6);
-            tabPatchwork.setBounds (tabs.removeFromLeft (104));
-            tabs.removeFromLeft (2);
-            tabChordPad.setBounds (tabs.removeFromLeft (104));
-        }
     }
 
     void mouseDown (const juce::MouseEvent&) override
@@ -292,8 +216,7 @@ public:
 
 private:
     WinButton minBtn { WinButton::Minimise }, maxBtn { WinButton::Maximise }, closeBtn { WinButton::Close };
-    TabLookAndFeel tabLnf;
-    bool tabsShown = false, maximised = false;
+    bool maximised = false;
     juce::Rectangle<int> restoreBounds;
     juce::String statusText;
     bool statusPlaying = false;
@@ -390,25 +313,11 @@ public:
         addAndMakeVisible (*browser);
         browser->goToURL ("http://127.0.0.1:" + juce::String (kHttpPort) + "/");
 
-        // Custom in-style title bar (the window is borderless): app name, view
-        // tabs, and window buttons. Handles drag + Aero Snap natively.
-        titleBar.onTab = [this] (int t) { showTab (t); };
+        // Custom in-style title bar (the window is borderless): app name,
+        // engine status and window buttons. Handles drag + Aero Snap natively.
+        // The views (Rack / Compose) live inside the single web page; the
+        // compose view is an iframe onto the local compose server.
         addAndMakeVisible (titleBar);
-
-        // Embed chord-pad as a second view in the same window (one app). Only
-        // when its local server is up. The tabs switch between the two; both
-        // stay loaded (withKeepPageLoadedWhenBrowserIsHidden) so chord-pad keeps
-        // its WS link + transport while you're on the Patchwork tab.
-        if (chordPad.isListening())
-        {
-            auto* cb = new Browser (opts);
-            chordBrowser.reset (cb);
-            addChildComponent (*chordBrowser);
-            chordBrowser->goToURL ("http://127.0.0.1:" + juce::String (kChordPadPort) + "/chord-pad.html");
-            titleBar.setTabsVisible (true);
-            hasTabs = true;
-        }
-        showTab (0);
 
         deviceManager.addChangeListener (this);
 
@@ -671,18 +580,7 @@ public:
     {
         auto r = getLocalBounds();
         titleBar.setBounds (r.removeFromTop (34));   // custom title bar / caption
-        if (browser      != nullptr) browser->setBounds (r);
-        if (chordBrowser != nullptr) chordBrowser->setBounds (r);
-    }
-
-    // Switch the embedded view. Both browsers stay loaded; we only toggle
-    // visibility so chord-pad keeps its WS link while you're on Patchwork.
-    void showTab (int tab)
-    {
-        activeTab = tab;
-        if (browser      != nullptr) browser->setVisible (tab == 0);
-        if (chordBrowser != nullptr) chordBrowser->setVisible (tab == 1);
-        titleBar.setActiveTab (tab);
+        if (browser != nullptr) browser->setBounds (r);
     }
 
 private:
@@ -970,6 +868,16 @@ private:
             return;
         }
         else if (cmd == "transport_stop") { seq.stop(); return; }
+        else if (cmd == "show_view")
+        {
+            // Ask the shell to switch view (rack / compose) — relayed to every
+            // client so it can come from anywhere (test client, later a controller).
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("event", "show_view");
+            o->setProperty ("view",  v.getProperty ("view", "rack").toString());
+            ws.broadcast (juce::var (o.get()));
+            return;
+        }
         else if (cmd == "transport_seek") { seq.seek ((double) v.getProperty ("beat", 0.0)); return; }
         else if (cmd == "seq_model")
         {
@@ -1838,6 +1746,9 @@ private:
         obj->setProperty ("tsDenominator",   settings.tsDenominator);
         obj->setProperty ("clockActive",     clockActive);
         obj->setProperty ("effectiveBpm",    plugin.playHead.bpm.load());
+        // Where the shell finds the compose view ("" = not being served).
+        obj->setProperty ("composeUrl", chordPad.isListening()
+            ? "http://127.0.0.1:" + juce::String (kChordPadPort) + "/chord-pad.html" : juce::String());
 
         ws.broadcast (juce::var (obj.get()));
     }
@@ -2165,6 +2076,7 @@ private:
         o->setProperty ("loopStart",    ls);
         o->setProperty ("loopEnd",      le);
         o->setProperty ("latencyBeats", latencyBeats);
+        o->setProperty ("metro",        metroOn.load());
         o->setProperty ("notesFired",   (int) seqNotesFired.load());   // running count, for diagnostics
         ws.broadcast (juce::var (o.get()));
     }
@@ -2361,10 +2273,7 @@ private:
     std::unique_ptr<juce::FileChooser>          chooser;
     std::unique_ptr<juce::FileChooser>          projectChooser;   // save/open project
     std::unique_ptr<juce::WebBrowserComponent>  browser;
-    std::unique_ptr<juce::WebBrowserComponent>  chordBrowser;   // embedded chord-pad
-    TitleBar titleBar;                                          // custom caption + tabs + window buttons
-    bool hasTabs  = false;
-    int  activeTab = 0;
+    TitleBar titleBar;                                          // custom caption + status + window buttons
 };
 
 class MainWindow : public juce::DocumentWindow

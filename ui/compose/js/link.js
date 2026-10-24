@@ -242,15 +242,23 @@ function linkRenderBadge() {
     el.innerHTML = '<span class="link-dot" style="width:7px;height:7px;border-radius:50%;background:#555"></span>'
       + '<span class="link-label">engine</span>'
       + '<select class="link-target" style="font:inherit;background:rgba(0,0,0,.4);color:var(--text,#e8e6df);border:1px solid var(--panel-edge,#25282e);border-radius:4px;padding:2px 4px;max-width:180px"></select>';
-    document.body.appendChild(el);
+    // Standalone: floating bottom-right. Embedded in Patchwork's shell: first
+    // thing in the (sticky) header, where the wordmark used to be.
+    const header = document.documentElement.classList.contains('embed') ? document.querySelector('.header') : null;
+    if (header) header.insertBefore(el, header.firstChild); else document.body.appendChild(el);
     el.querySelector('.link-target').addEventListener('change', (e) => {
       LINK.padTarget = e.target.value;
       try { localStorage.setItem('patchwork-link-pad-target', LINK.padTarget); } catch (_) {}
       linkPushModel();
     });
   }
+  const embedded = document.documentElement.classList.contains('embed');
   el.querySelector('.link-dot').style.background = LINK.active ? 'var(--accent,#ffaa33)' : '#555';
-  el.querySelector('.link-label').textContent = LINK.active ? 'engine' : 'engine offline';
+  el.querySelector('.link-dot').style.display = embedded ? 'none' : '';
+  // Inside Patchwork's shell the engine is a given; the badge is just the
+  // pad-instrument picker.
+  el.querySelector('.link-label').textContent = embedded ? 'pads' : (LINK.active ? 'engine' : 'engine offline');
+  el.style.display = (embedded && !LINK.active) ? 'none' : '';
   const sel = el.querySelector('.link-target');
   sel.style.display = LINK.active ? '' : 'none';
   const opts = ['<option value="">— rack routing —</option>']

@@ -40,11 +40,63 @@ body {
 
 .app {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   background: linear-gradient(180deg, var(--panel) 0%, #131419 100%);
   display: flex; flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
+
+/* views: Rack (this page's own content) and Compose (embedded chord-pad fork) */
+.view { display: none; flex: 1; min-height: 0; }
+.view.active { display: flex; flex-direction: column; }
+main#view-rack.active { overflow: auto; }
+.compose-view { padding: 0; }
+#compose-frame { flex: 1; width: 100%; border: 0; display: block; background: transparent; }
+
+.view-switch {
+  display: inline-flex; align-items: center; gap: 2px;
+  margin-left: 10px;
+  padding: 2px;
+  background: #191c21;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+}
+.view-switch[hidden] { display: none; }
+.view-switch button {
+  background: transparent; border: 0;
+  color: #868c96;
+  font-size: 11px; letter-spacing: 0.06em; text-transform: none;
+  height: 22px; padding: 0 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.view-switch button:hover { color: var(--text); background: rgba(255,255,255,0.04); border: 0; }
+.view-switch button.active { color: #fff; background: rgba(255,255,255,0.09); }
+
+/* engine transport in the status bar */
+.transport { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px; }
+.tr-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0;
+  background: transparent;
+  border: 1px solid var(--panel-edge);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tr-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); }
+.tr-btn .lucide { width: 11px; height: 11px; stroke-width: 2; }
+.tr-btn.on { color: var(--accent); border-color: rgba(255,170,51,0.45); box-shadow: 0 0 6px var(--accent-glow); }
+.tr-pos {
+  min-width: 46px; text-align: center;
+  font-size: 11px; color: var(--text); letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.transport.playing .tr-pos { color: var(--accent); }
+.tr-loop { display: inline-flex; align-items: center; color: var(--text-faint); padding: 0 2px; }
+.tr-loop .lucide { width: 11px; height: 11px; }
+.tr-loop.on { color: var(--accent); }
 
 /* header / titlebar */
 header.titlebar {

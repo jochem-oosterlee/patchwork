@@ -26,6 +26,10 @@
         <button id="btn-undo" class="icon-btn" title="undo (Ctrl+Z)" disabled><i data-lucide="undo-2"></i></button>
         <button id="btn-redo" class="icon-btn" title="redo (Ctrl+Shift+Z)" disabled><i data-lucide="redo-2"></i></button>
       </nav>
+      <nav id="view-switch" class="view-switch no-drag" hidden>
+        <button data-view="rack" class="active">Rack</button>
+        <button data-view="compose">Compose</button>
+      </nav>
       <div class="drag-spacer"></div>
       <!-- Window controls (min/max/close) live in the native title bar now. -->
     </header>
@@ -54,7 +58,7 @@
       <button class="menu-item" data-action="midi-settings"><span class="menu-icon"><i data-lucide="cable"></i></span><span class="menu-label">MIDI settings…</span></button>
     </div>
 
-    <main>
+    <main id="view-rack" class="view active">
       <section id="kb-section">
         <h2>Keyboard</h2>
         <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px;">
@@ -142,6 +146,13 @@
       </section>
     </main>
 
+    <!-- Compose view: our fork of chord-pad, served by the engine and shown
+         in embed mode (no own chrome, shared tokens). It talks to the engine
+         over the same WebSocket as this page. -->
+    <div id="view-compose" class="view compose-view">
+      <iframe id="compose-frame" title="Compose" allow="midi *; autoplay *"></iframe>
+    </div>
+
     <footer class="statusbar">
       <div class="status-group">
         <span id="midi-in-led" class="midi-led" title="midi in"></span>
@@ -149,6 +160,13 @@
         <span id="midi-out-led" class="midi-led" title="midi out"></span>
         <span class="status-label">out</span>
         <button id="panic-btn" class="panic-btn" title="all-notes-off / all-sound-off to every live plugin (panic)"><i data-lucide="octagon-alert"></i><span>panic</span></button>
+        <div class="transport" title="engine transport">
+          <button id="tr-play" class="tr-btn" title="play (engine)"><i data-lucide="play"></i></button>
+          <button id="tr-stop" class="tr-btn" title="stop"><i data-lucide="square"></i></button>
+          <span id="tr-pos" class="tr-pos">1.1</span>
+          <span id="tr-loop" class="tr-loop" title="loop"><i data-lucide="repeat"></i></span>
+          <button id="tr-metro" class="tr-btn" title="metronome"><i data-lucide="music-2"></i></button>
+        </div>
         <div id="tempo-widget" class="tempo-widget" title="tempo — click to type, scroll to nudge. Auto-follows MIDI clock when received.">
           <input id="tempo-input" type="number" min="20" max="999" step="0.1" value="120">
           <span class="tempo-unit">bpm</span>

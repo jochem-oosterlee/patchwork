@@ -1088,6 +1088,13 @@ function connect() {
         if (setBrowserModal && !setBrowserModal.hidden) renderPatchsetBrowser();
         setUndoRedoState(!!m.canUndo, !!m.canRedo);
         applyTempoState(m);
+        applyComposeUrl(m.composeUrl || '');
+        break;
+      case 'transport':
+        applyTransport(m);
+        break;
+      case 'show_view':
+        if (!document.getElementById('view-switch').hidden) setView(m.view === 'compose' ? 'compose' : 'rack');
         break;
       case 'plugin_loaded':
         setPluginName(m.name);
@@ -1605,7 +1612,6 @@ document.querySelectorAll('.dropdown-menu .menu-item').forEach(item => {
       const section = item.dataset.section;
       document.body.classList.toggle('hide-' + section);
       refreshViewMenuChecks();
-      setTimeout(reportHeight, 30);
       return; // stay open
     }
     const action = item.dataset.action;
@@ -1781,11 +1787,70 @@ function openTagEditor(idx) {
   openModal(tagModal);
 }
 
-function reportHeight() {
-  const h = Math.ceil(document.querySelector('.app').getBoundingClientRect().height);
-  if (h > 0) send({ cmd: 'resize_to_content', height: h });
+/* views: Rack / Compose. The window keeps whatever size the user gave it;
+   each view scrolls inside it. */
+function setView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  document.querySelectorAll('#view-switch button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  document.body.classList.toggle('view-compose', name === 'compose');
+  try { localStorage.setItem('patchwork-view', name); } catch (_) {}
 }
-window.addEventListener('load', () => setTimeout(reportHeight, 50));
+document.querySelectorAll('#view-switch button').forEach(b => {
+  b.addEventListener('click', () => setView(b.dataset.view));
+  b.title = b.dataset.view === 'rack' ? 'Rack (Ctrl+1)' : 'Compose (Ctrl+2)';
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === '1' || e.key === '2')) {
+    if (document.getElementById('view-switch').hidden) return;
+    e.preventDefault();
+    setView(e.key === '1' ? 'rack' : 'compose');
+  }
+});
+let composeUrlApplied = '';
+function applyComposeUrl(url) {
+  const sw = document.getElementById('view-switch');
+  const frame = document.getElementById('compose-frame');
+  if (!url) {
+    sw.hidden = true;
+    if (document.body.classList.contains('view-compose')) setView('rack');
+    return;
+  }
+  sw.hidden = false;
+  if (url !== composeUrlApplied) {
+    composeUrlApplied = url;
+    frame.src = url + (url.includes('?') ? '&' : '?') + 'embed=1';
+    let want = 'rack';
+    try { want = localStorage.getItem('patchwork-view') || 'rack'; } catch (_) {}
+    setView(want);
+  }
+}
+
+/* engine transport (status bar) */
+const trPlay = document.getElementById('tr-play');
+const trStop = document.getElementById('tr-stop');
+const trPos  = document.getElementById('tr-pos');
+const trLoop = document.getElementById('tr-loop');
+const trMetro = document.getElementById('tr-metro');
+let metroOn = false;
+function applyTransport(m) {
+  const tsNum = Math.max(1, m.tsNum | 0 || 4);
+  const beat  = Math.max(0, +m.beat || 0);
+  const bar   = Math.floor(beat / tsNum) + 1;
+  const bib   = Math.floor(beat % tsNum) + 1;
+  trPos.textContent = bar + '.' + bib;
+  trPlay.classList.toggle('on', !!m.playing);
+  trPlay.closest('.transport').classList.toggle('playing', !!m.playing);
+  trLoop.classList.toggle('on', !!m.loop);
+  if (typeof m.metro === 'boolean') { metroOn = m.metro; trMetro.classList.toggle('on', metroOn); }
+  if (typeof m.bpm === 'number' && m.bpm > 0 && document.activeElement !== tempoInput) {
+    const shown = parseFloat(tempoInput.value);
+    if (!(Math.abs(shown - m.bpm) < 0.05)) tempoInput.value = String(Math.round(m.bpm * 10) / 10);
+  }
+}
+trPlay.addEventListener('click', () => send({ cmd: 'transport_play' }));
+trStop.addEventListener('click', () => send({ cmd: 'transport_stop' }));
+trMetro.addEventListener('click', () => send({ cmd: 'metronome', on: !metroOn }));
+
 window.addEventListener('load', () => {
   setTimeout(() => {
     const s = document.getElementById('splash');

@@ -5185,6 +5185,8 @@ arrSetTool(SEQ.arrTool);
 })();
 setRollTool('none');
 
-if ('serviceWorker' in navigator) {
+// Standalone only: inside Patchwork's shell the engine serves these files
+// fresh (no-store) and a service worker would just get in the way of edits.
+if ('serviceWorker' in navigator && !document.documentElement.classList.contains('embed')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }

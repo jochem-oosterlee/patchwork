@@ -59,6 +59,21 @@ note-emissie kloppen. Instrumenten die het nummer gebruikt (`seqTargets`)
 blijven geladen (`reconcileLiveInstances`) en worden bij `seq_model` geladen
 (`ensurePresetLoaded`, over alle patchsets heen).
 
+## Eén schil (fase 3, 2026-10-24)
+
+Eén WebView: `ui/index.html` is de schil (titelbalk met menu's + view-switcher
+Rack/Compose, statusbalk met engine-transport play/stop/positie/loop/metronoom).
+De compose-view is een iframe naar de lokale compose-server
+(`state.composeUrl`, poort 7683) met `?embed=1`: `ui/compose/embed.css` haalt
+de eigen kaart, wordmark en projectknoppen weg en laat de achtergrond van de
+schil doorschijnen. De native TitleBar heeft geen tabs meer, alleen status +
+vensterknoppen. `resize_to_content` wordt niet meer gestuurd; het venster houdt
+de grootte die de gebruiker kiest, de views scrollen intern.
+
+Opruimpunten voor de compose-fork (alleen laptopgebruik, besloten 2026-10-24):
+touch-glide en touch-handlers, mobiele media queries, PWA-manifest + sw.js
+(in embed al uitgeschakeld) kunnen eruit. chord-pad standalone houdt dat wel.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).
