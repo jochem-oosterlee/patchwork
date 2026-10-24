@@ -1,8 +1,14 @@
 # Patchwork
 
-Een eigen MIDI-router + VST3-host voor Windows, met
-[chord-pad](https://github.com/jochem-oosterlee/chord-pad) ingebouwd als tweede tab.
-C++ engine (JUCE) + web UI in een ingebedde WebView2, gekoppeld via een localhost WebSocket.
+Een eigen MIDI-router + VST3-host voor Windows, met een compose-view
+(`ui/compose/`, een fork van [chord-pad](https://github.com/jochem-oosterlee/chord-pad))
+als tweede tab. C++ engine (JUCE) + web UI in een ingebedde WebView2, gekoppeld via
+een localhost WebSocket.
+
+chord-pad blijft als zelfstandige browser-app bestaan in zijn eigen repo; de kopie
+hier groeit los daarvan verder richting één geïntegreerde app.
+
+Licentie: GPLv3 (zie `LICENSE`) — chord-pad is GPLv3, dus dat geldt voor het geheel.
 
 ## Architectuur
 
@@ -20,7 +26,6 @@ Eenmalig nodig:
 - Visual Studio 2022 (of de Build Tools) met de C++ workload, en CMake
 - Optioneel de [Steinberg ASIO SDK](https://www.steinberg.net/asiosdk), uitgepakt naast
   deze repo als `../ASIOSDK` (of geef `-DASIO_SDK_DIR=...` mee). Zonder SDK bouwt hij zonder ASIO.
-- Optioneel `chord-pad` gecloned op het Bureaublad (`Desktop/chord-pad`)
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64

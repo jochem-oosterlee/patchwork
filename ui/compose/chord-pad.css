@@ -1,0 +1,3979 @@
+/* Lucide icon defaults */
+.lucide {
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+  stroke-width: 1.75;
+  flex-shrink: 0;
+}
+.seq-play-btn .lucide,
+.seq-stop-btn .lucide,
+.seq-metro-btn .lucide,
+.seq-loop-btn .lucide { width: 11px; height: 11px; vertical-align: -1px; }
+.seq-zoom-btns .lucide { width: 14px; height: 14px; vertical-align: -3px; }
+.seq-delete .lucide, .roll-note-del .lucide { width: 9px; height: 9px; vertical-align: 0; }
+.seq-resize .lucide { width: 10px; height: 10px; }
+.drag-handle .lucide { width: 12px; height: 12px; vertical-align: -2px; }
+.tempo-sync-btn .lucide { width: 11px; height: 11px; vertical-align: -2px; }
+.ctrl-arrow .lucide { width: 14px; height: 14px; vertical-align: -3px; }
+.kb-scroll-btn .lucide { width: 14px; height: 14px; vertical-align: -3px; }
+
+:root {
+  --bg: #0d0e10;
+  --panel: #16181c;
+  --panel-edge: #25282e;
+  --text: #e8e6df;
+  --text-dim: #8a8780;
+  --text-faint: #4a4842;
+  --accent: #ffaa33;
+  --pad-glow: rgba(255, 170, 51, 0.4);
+
+  --major-card: #5a86a5;
+  --major-card-deep: #4a7191;
+  --minor-card: #3a4d7a;
+  --minor-card-deep: #2e3e65;
+  --lib-card: #b88a32;
+  --lib-card-deep: #946d22;
+  --pad-dark: #1a212c;
+  --pad-dark-deeper: #11161e;
+  --bar-px: 120px;
+  --beat-px: 30px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+/* Form controls don't inherit font-family by default — without this
+   any <button>/<input>/<select> without an explicit font-family falls
+   back to the browser's system font (Arial on Windows) and breaks the
+   monospace look. */
+button, input, select, textarea { font-family: inherit; }
+
+html {
+  touch-action: manipulation;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(255,170,51,0.04), transparent 50%),
+    radial-gradient(circle at 80% 100%, rgba(95,187,205,0.03), transparent 50%);
+  min-height: 100vh;
+  padding: 20px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  opacity: 0.3;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: overlay;
+  z-index: 1;
+}
+
+.app {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 100%;
+  background: linear-gradient(180deg, var(--panel) 0%, #131419 100%);
+  border: 1px solid var(--panel-edge);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 0 0 1px rgba(0,0,0,0.5),
+    0 30px 60px -20px rgba(0,0,0,0.8);
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* restore text editing in inputs */
+.app input, .app select, .app textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ─────────── header ─────────── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--panel-edge);
+  flex-wrap: wrap; gap: 10px;
+}
+
+.brand {
+  font-family: 'Major Mono Display', monospace;
+  font-size: 16px; letter-spacing: 0.18em;
+  color: var(--text); text-transform: lowercase;
+  cursor: pointer;
+  user-select: none;
+}
+
+.header-right {
+  display: flex; align-items: center; gap: 6px;
+  margin-left: auto;
+}
+.header-section-toggle {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255,255,255,0.30);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.header-section-toggle:hover { color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.10); }
+.header-section-toggle.active { color: var(--accent); border-color: rgba(255,170,51,0.30); }
+.header-section-toggle [data-lucide] { width: 18px; height: 18px; }
+/* Project Export / Import buttons in the top bar — visual twin of
+   .header-section-toggle but never "active". */
+.header-project-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255,255,255,0.30);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.header-project-btn [data-lucide] { width: 18px; height: 18px; }
+@media (hover: hover) {
+  .header-project-btn:hover { color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.10); }
+}
+.header-sep {
+  width: 1px; height: 18px;
+  background: rgba(255,255,255,0.10);
+  margin: 0 4px;
+}
+/* Compact floating mirror of the section toggles. Fades in once the
+   user scrolls past the original header so they can still flip panels
+   without scrolling back up. */
+.section-mini-toolbar {
+  position: fixed; top: 8px; right: 12px;
+  display: none;
+  align-items: center; gap: 2px;
+  padding: 3px 5px;
+  background: rgba(20,20,22,0.92);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  backdrop-filter: blur(8px);
+  z-index: 150;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s;
+  pointer-events: none;
+}
+.section-mini-toolbar.visible {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.section-mini-toolbar button {
+  background: transparent; border: 1px solid transparent;
+  color: rgba(255,255,255,0.30);
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, border-color 0.12s;
+}
+.section-mini-toolbar button:hover { color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.10); }
+.section-mini-toolbar button.active { color: var(--accent); border-color: rgba(255,170,51,0.30); }
+.section-mini-toolbar button [data-lucide] { width: 14px; height: 14px; }
+body.hide-chord-pad .tabs-header,
+body.hide-chord-pad .tabs,
+body.hide-chord-pad .page          { display: none !important; }
+body.hide-settings   #settings-panel  { display: none !important; }
+/* Settings popover — anchored under the header gear icon. Position is set
+   inline by JS each time it opens, sourced from the gear's getBoundingRect. */
+#settings-panel {
+  position: fixed;
+  z-index: 1000;
+  width: auto; max-width: calc(100vw - 24px);
+  background: var(--bg, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 12px 14px 14px;
+}
+body.hide-instrument #instrument-panel { display: none !important; }
+/* The synth-controls panel is fully replaced by the chord-pad settings modal
+   and the per-track FX modal. Keep its DOM (the modal's instrument <select>
+   dispatches change events to #synth-instrument so the existing handler
+   still loads samples / updates state) but hide it from view. */
+#instrument-panel { display: none !important; }
+
+/* Master volume knob in the Settings row — same shape as the track-header
+   volume knob, slightly larger so it reads as a primary control. */
+.master-vol-knob {
+  position: relative; display: inline-block;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.25);
+  cursor: default; touch-action: none; vertical-align: middle;
+  transition: border-color 0.12s;
+}
+.master-vol-knob:hover { border-color: var(--accent); }
+.master-vol-knob-ind {
+  position: absolute; left: 50%; bottom: 50%;
+  width: 2px; height: 10px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: 50% 100%;
+  transform: translate(-50%, 0) rotate(var(--ang, 0deg));
+  pointer-events: none;
+}
+body.hide-keyboard   #keyboard-panel  { display: none !important; }
+body.hide-sequencer  #seq-panel       { display: none !important; }
+body.hide-pianoroll  #seq-pianoroll   { display: none !important; }
+
+
+select {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--panel-edge);
+  padding: 5px 8px; font-family: inherit; font-size: 11px;
+  border-radius: 4px; min-width: 180px; cursor: pointer;
+}
+select:hover { border-color: var(--accent); }
+option { background: var(--bg); color: var(--text); }
+
+.led {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #2a2c30;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
+  transition: all 0.05s ease;
+}
+.led.on {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent), inset 0 0 4px rgba(255,255,200,0.6);
+}
+
+.error-banner {
+  background: linear-gradient(180deg, #3a1818 0%, #2a1010 100%);
+  border-bottom: 1px solid #6a2828;
+  color: #ffaaaa; padding: 10px 22px;
+  font-size: 11px; display: none; letter-spacing: 0.05em;
+}
+.error-banner.show { display: block; }
+
+.sf2-progress {
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+  margin-left: 12px;
+}
+
+/* ─────────── tabs ─────────── */
+.tabs { display: flex; align-items: stretch; border-bottom: 1px solid var(--panel-edge); background: rgba(0,0,0,0.2); }
+.tabs-collapse {
+  margin-left: auto;
+  background: transparent; border: 0; color: var(--text-dim);
+  font-size: 12px; padding: 6px 14px; cursor: pointer;
+  transition: transform 0.15s, color 0.12s;
+}
+.tabs-collapse:hover { color: var(--text); }
+.tabs-header {
+  border-top: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.01);
+  padding: 12px 20px 14px;
+  font-size: 9px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.2em;
+  user-select: none;
+}
+.tabs-header-chev { display: none; }
+.tab {
+  background: transparent; border: 0;
+  border-right: 1px solid var(--panel-edge);
+  color: var(--text-dim); font-family: inherit;
+  font-size: 10px; letter-spacing: 0.22em;
+  text-transform: uppercase; padding: 12px 26px;
+  cursor: pointer; transition: all 0.1s ease; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.tab:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+.tab.active { color: var(--text); background: rgba(255,255,255,0.04); }
+.tab.tab-settings {
+  padding: 12px 14px;
+  border-right: 0;
+  border-left: 1px solid var(--panel-edge);
+}
+.tab.tab-settings .lucide { width: 14px; height: 14px; }
+.tab.tab-settings::after { display: none; }
+/* Voicing dropdown lives in the tab row for quick access. Pushed to
+   the right with margin-left:auto so it sits next to the settings
+   button. Styled to match the chord-length wrap in the sequencer
+   toolbar — single bordered pill, icon on the left with a divider,
+   select with no extra chrome on the right. */
+.tab-voicing-wrap {
+  margin-left: auto;
+  margin-right: 8px;
+  align-self: center;
+  display: inline-flex; align-items: center; gap: 0;
+  height: 24px;
+  padding: 0 0 0 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  background: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.tab-voicing-wrap:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.tab-voicing-wrap > [data-lucide],
+.tab-voicing-wrap svg { width: 13px; height: 13px; color: inherit; pointer-events: none; }
+.tab-voicing-select {
+  border: 0 !important;
+  background: none !important;
+  padding: 0 6px !important;
+  margin: 0 !important;
+  height: 100%;
+  color: inherit;
+  font-size: 11px;
+  min-width: 0;
+  cursor: pointer;
+}
+.tab-voicing-select:focus { outline: none; }
+.tab.active::after {
+  content: ''; position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 2px; background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ─────────── card ─────────── */
+.card {
+  position: relative;
+  padding: 28px 36px 24px 36px;
+  max-width: 1240px;
+  margin: 8px auto;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.card.major {
+  background-color: var(--major-card);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.18)),
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.08), transparent 60%);
+}
+.card.minor {
+  background-color: var(--minor-card);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25)),
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.06), transparent 60%);
+}
+.card::after {
+  content: ''; position: absolute; inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n2'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n2)' opacity='0.6'/></svg>");
+  opacity: 0.18; mix-blend-mode: overlay;
+}
+
+/* ─────────── rotated logo (left edge) ─────────── */
+.logo-block {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+}
+.logo-rotated {
+  transform: rotate(-90deg);
+  text-align: center;
+  white-space: nowrap;
+}
+.logo-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-style: italic;
+  font-size: 32px;
+  color: rgba(0, 0, 0, 0.85);
+  letter-spacing: 0.01em;
+  display: block;
+  line-height: 1;
+}
+.logo-name .reg {
+  font-size: 11px; vertical-align: super;
+  font-style: normal; font-family: 'JetBrains Mono', monospace;
+  font-weight: 400;
+  margin-left: 2px;
+}
+.logo-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.55);
+  display: block;
+  margin-top: 6px;
+}
+
+/* ─────────── SET THE KEY slider (top of card) ─────────── */
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+  position: relative;
+  z-index: 1;
+}
+.key-row .key-label-text {
+  font-size: 9px; letter-spacing: 0.3em;
+  text-transform: uppercase; color: rgba(255,255,255,0.75);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.key-track-wrap {
+  flex: 1;
+  position: relative;
+}
+.key-track {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(0,0,0,0.7);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
+  gap: 1px;
+}
+.key-btn {
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.6);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; font-weight: 500;
+  padding: 8px 0; cursor: pointer;
+  border-radius: 2px; transition: all 0.1s ease;
+  letter-spacing: 0.05em;
+}
+.key-btn:hover { color: white; background: rgba(255,255,255,0.05); }
+.key-btn.active {
+  background: linear-gradient(180deg, #d4c4a8 0%, #b3a384 100%);
+  color: #1a1410;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.2) inset,
+    0 0 12px rgba(212,196,168,0.45);
+  font-weight: 700;
+}
+
+/* ─────────── chord chart ─────────── */
+.board { position: relative; z-index: 1; }
+
+/* Major Harmony: 3 horizontal rows */
+.major-section { margin-bottom: 18px; }
+.major-section:last-of-type { margin-bottom: 0; }
+
+.major-flow-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+  font-weight: 500;
+}
+.major-flow-label .icon { width: 14px; height: 14px; flex-shrink: 0; }
+.major-flow-label .icon path,
+.major-flow-label .icon line,
+.major-flow-label .icon circle { stroke: rgba(255,255,255,0.85); fill: none; stroke-width: 1.2; }
+
+.major-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+[data-board="major-harmony"].v2 .major-row {
+  grid-template-columns: repeat(7, 1fr);
+}
+.major-row .pad-cell.empty { visibility: hidden; }
+
+/* Minor Harmony rows */
+.minor-section {
+  margin-bottom: 16px;
+}
+.minor-section:last-of-type { margin-bottom: 0; }
+
+.minor-flow-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+  font-weight: 500;
+}
+.minor-flow-label .icon { width: 13px; height: 13px; flex-shrink: 0; }
+.minor-flow-label .icon path,
+.minor-flow-label .icon line,
+.minor-flow-label .icon circle { stroke: rgba(255,255,255,0.8); fill: none; stroke-width: 1.2; }
+
+.minor-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+}
+.minor-row .pad-cell.empty { visibility: hidden; }
+.minor-row.has-neapolitan {
+  position: relative;
+  box-shadow: none;
+}
+/* solid border on the main part */
+.minor-row.has-neapolitan::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  right: var(--nea-split, calc(100% / 7));
+  border: 2px solid rgba(255,255,255,0.22);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+/* dashed border on the neapolitan part */
+.minor-row.has-neapolitan::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: calc(var(--nea-split, calc(100% / 7)) - 3.5px);
+  border: 2px dashed rgba(255,255,255,0.22);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─────────── group borders (rows with group-level arrows) ─────────── */
+.major-row.secdom,
+.major-row.main,
+.major-row.modal,
+.minor-row.sd_v,
+.minor-row.main,
+.minor-row.sd_iv,
+.scale-row {
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.22);
+  padding: 10px 12px;
+}
+.minor-row.main.has-neapolitan,
+.minor-row.sd_v.has-neapolitan,
+.minor-row.sd_iv.has-neapolitan { box-shadow: none; }
+
+/* ─────────── pad (Roman + button + quality) ─────────── */
+.pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 160px;
+  touch-action: none;
+}
+
+.pad-roman {
+  display: none;
+}
+.pad-roman sub {
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+  vertical-align: -0.15em;
+}
+
+.pad-button {
+  background: linear-gradient(180deg, #1f2832 0%, #131822 100%);
+  border: 1px solid rgba(0,0,0,0.55);
+  border-radius: 5px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 6px;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.04s ease, box-shadow 0.08s ease, border-color 0.1s ease;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.05) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset,
+    0 4px 8px rgba(0,0,0,0.35);
+  pointer-events: none;  /* let the parent .pad receive clicks */
+}
+
+.pad-button .pad-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 20px;
+  color: white;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.acc { font-weight: 400; }
+
+.pad-button .pad-key {
+  position: absolute;
+  top: 4px; right: 4px;
+  font-size: 8px;
+  color: rgba(255,255,255,0.4);
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.pad-button .pad-chord {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.pad-button .pad-quality {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* Active state — applied to the .pad wrapper */
+.pad.active .pad-button {
+  background: linear-gradient(180deg, #2a1d0b 0%, #1a1208 100%);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 24px var(--pad-glow),
+    inset 0 0 16px rgba(255, 170, 51, 0.15);
+  transform: translateY(2px);
+}
+.pad.active .pad-button .pad-name {
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--pad-glow);
+}
+.pad.active .pad-roman,
+.pad.active .pad-quality { color: var(--accent); }
+.pad.active .pad-ext { color: rgba(255,170,51,0.6); }
+.pad.active .pad-button .pad-key {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.pad:hover .pad-button { border-color: rgba(255,170,51,0.35); }
+
+/* "Suggested next chord" highlight — soft teal, only when not active */
+.pad.suggested:not(.active) .pad-button {
+  border-color: rgba(120, 220, 180, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(120, 220, 180, 0.45),
+    0 0 18px rgba(120, 220, 180, 0.22),
+    inset 0 0 12px rgba(120, 220, 180, 0.08);
+}
+.pad.suggested:not(.active) .pad-roman,
+.pad.suggested:not(.active) .pad-button .pad-quality,
+.pad.suggested:not(.active) .pad-button .pad-ext {
+  color: rgba(120, 220, 180, 0.92);
+}
+.pad.suggested:not(.active) .pad-button .pad-name {
+  color: rgba(120, 220, 180, 0.96);
+  text-shadow: 0 0 6px rgba(120, 220, 180, 0.35);
+}
+.pad.suggested:not(.active) .pad-button .pad-key {
+  color: rgba(120, 220, 180, 0.7);
+  border-color: rgba(120, 220, 180, 0.4);
+}
+
+/* Stronger suggestion highlight on the blue major card */
+.card.major .pad.suggested:not(.active) .pad-button {
+  border-color: rgba(120, 220, 180, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(120, 220, 180, 0.8),
+    0 0 22px rgba(120, 220, 180, 0.45),
+    inset 0 0 14px rgba(120, 220, 180, 0.18);
+}
+.card.major .pad.suggested:not(.active) .pad-button .pad-name {
+  color: rgb(120, 220, 180);
+  text-shadow: 0 0 8px rgba(120, 220, 180, 0.6);
+}
+.card.major .pad.suggested:not(.active) .pad-button .pad-key {
+  color: rgba(120, 220, 180, 0.95);
+  border-color: rgba(120, 220, 180, 0.7);
+}
+
+/* "START HERE" tooltip on the I/i pad */
+.start-here-marker {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.92);
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: 500;
+}
+.start-here-marker::after {
+  content: '';
+  display: block;
+  width: 1px; height: 8px;
+  background: rgba(255,255,255,0.7);
+  margin: 2px auto 0;
+}
+
+/* ─────────── SVG connection overlay ─────────── */
+.connections-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+.connection-line {
+  stroke: rgba(255,255,255,0.18);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.connection-arrow {
+  fill: none;
+  stroke: rgba(255,255,255,0.18);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.connection-line.conn-active {
+  stroke: rgba(120, 220, 180, 0.85);
+  filter: drop-shadow(0 0 4px rgba(120, 220, 180, 0.55));
+}
+.connection-arrow.conn-active {
+  stroke: rgba(120, 220, 180, 0.85);
+  filter: drop-shadow(0 0 4px rgba(120, 220, 180, 0.55));
+}
+.major-row.conn-active,
+.minor-row.conn-active {
+  box-shadow: 0 0 0 2px rgba(120, 220, 180, 0.75), 0 0 14px rgba(120, 220, 180, 0.2);
+}
+
+@keyframes key-roll-up {
+  from { opacity: 0; transform: translateY(220%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes key-roll-down {
+  from { opacity: 0; transform: translateY(-220%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pad-chord.key-rolling-up   { animation: key-roll-up   0.16s cubic-bezier(0.1, 0, 0.3, 1) both; }
+.pad-chord.key-rolling-down { animation: key-roll-down 0.16s cubic-bezier(0.1, 0, 0.3, 1) both; }
+
+/* ─────────── controls + footer ─────────── */
+.controls {
+  border-top: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.01);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.controls-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+.controls-body + .controls-body {
+  border-top: 1px solid var(--panel-edge);
+  padding-top: 8px;
+  margin-top: 0;
+}
+.control.grow { flex: 1 1 0; min-width: 100px; max-width: 10px; }
+.control.wide { flex: 2 1 0; min-width: 140px; max-width: 10px; }
+#port-control, #in-port-control { flex: 3 1 0; min-width: max-content; }
+.control.grow input[type="range"],
+.control.wide input[type="range"] { min-width: 0; }
+.synth-controls {
+  border-top: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.01);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.synth-header {
+  font-size: 9px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.2em;
+  user-select: none;
+}
+.synth-instrument-row {
+  display: flex; align-items: center; gap: 8px;
+  grid-column: 1 / -1;
+  padding-bottom: 4px;
+}
+.synth-target-row {
+  display: flex; align-items: center; gap: 4px;
+  grid-column: 1 / -1;
+  padding: 2px 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.synth-target-label {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.4); margin-right: 4px;
+}
+.synth-target-btn {
+  font-family: inherit; font-size: 10px; letter-spacing: 0.06em;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 3px;
+  color: rgba(255,255,255,0.55);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.synth-target-btn:hover { color: rgba(255,255,255,0.85); }
+.synth-target-btn.active {
+  color: var(--accent);
+  border-color: rgba(255,170,51,0.5);
+  background: rgba(255,170,51,0.10);
+}
+.synth-output-row {
+  display: flex; align-items: center; gap: 8px;
+  grid-column: 1 / -1;
+  padding: 0 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.synth-output-row .track-fx-output-toggle { flex: 0 1 auto; }
+.synth-ch-inline {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: rgba(255,255,255,0.55);
+  letter-spacing: 0.05em;
+}
+.synth-ch-inline.hidden { display: none; }
+.synth-instrument-row select {
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 6px;
+  cursor: pointer;
+  max-width: 200px;
+  height: 24px; box-sizing: border-box;
+}
+#output-select,
+#input-select {
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 6px;
+  cursor: pointer;
+  width: 100%;
+  height: 24px; box-sizing: border-box;
+}
+.synth-instrument-row select:hover,
+#output-select:hover,
+#input-select:hover,
+.synth-param select:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.synth-row-divider {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--panel-edge);
+  margin: 2px 0 4px;
+}
+.synth-sliders {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  padding-top: 8px;
+}
+.synth-param.synth-only { display: none; }
+.synth-param.synth-only.visible { display: flex; }
+.synth-param {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.synth-param-label {
+  font-size: 8px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  text-align: center;
+  height: 2.4em;
+  line-height: 1.2;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+}
+.synth-param-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; color: var(--text-dim);
+  text-align: center; min-height: 12px;
+}
+.synth-param input[type=range] {
+  width: 100%; min-width: 0;
+}
+.synth-param select {
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: var(--text-dim); font-size: 10px; font-family: inherit;
+  padding: 0 4px;
+  border-radius: 4px; cursor: pointer; width: 100%; min-width: 0;
+  height: 24px; box-sizing: border-box;
+}
+.control { display: flex; flex-direction: column; gap: 5px; align-items: center; justify-content: center; flex: 0 0 auto; }
+.control-label {
+  font-size: 9px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.2em;
+  text-align: center;
+}
+.control-row { display: flex; align-items: center; gap: 16px; width: 100%; justify-content: center; }
+.btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  color: var(--text-dim); font-family: inherit; font-size: 10px;
+  padding: 0 10px; border-radius: 4px; cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.1s ease; min-width: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 24px; box-sizing: border-box;
+}
+.btn:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.btn:active { transform: translateY(1px); }
+/* Suppress the browser default focus halo across the entire app.
+   Text inputs that need a focus signal already swap their own
+   border-color via :focus, so they stay legible. */
+*:focus,
+*:focus-visible { outline: none; }
+.btn.active {
+  border-color: var(--accent); color: var(--accent);
+  background: rgba(255,170,51,0.08);
+}
+.control-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 11px; color: var(--text-dim);
+  min-width: 28px; text-align: center;
+}
+input[type="range"] {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 4px; background: var(--pad-dark);
+  border: 1px solid #2a2d34; border-radius: 2px; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 10px; height: 10px;
+  background: var(--accent); border-radius: 50%;
+  box-shadow: 0 0 8px var(--pad-glow); cursor: grab;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; background: var(--accent);
+  border-radius: 50%; border: 0;
+}
+
+.footer {
+  border-top: 1px solid var(--panel-edge);
+  padding: 11px 20px;
+  background: rgba(0,0,0,0.2);
+  display: flex; justify-content: space-between;
+  align-items: center; font-size: 10px;
+  color: var(--text-dim); flex-wrap: wrap; gap: 10px;
+}
+.now-playing { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.now-playing .label {
+  color: var(--text-faint); text-transform: uppercase;
+  letter-spacing: 0.2em; font-size: 9px; flex-shrink: 0;
+}
+.now-playing .notes {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--accent); font-size: 12px; letter-spacing: 0.06em;
+  text-shadow: 0 0 8px var(--pad-glow);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.help { color: var(--text-faint); letter-spacing: 0.05em; font-size: 9px; text-transform: uppercase; }
+.hint-key { transition: color 0.1s, text-shadow 0.1s; }
+.hint-key.active { color: #ffaa33; text-shadow: 0 0 8px rgba(255,170,51,0.7); }
+
+/* ─────────── Scale Chords card ─────────── */
+:root {
+  --scale-card: #2e5c44;
+  --scale-card-deep: #224835;
+}
+.card.scale {
+  background-color: var(--scale-card);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.22)),
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.06), transparent 60%);
+}
+
+.scale-type-row {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0 20px;
+  flex-wrap: wrap;
+}
+.rows-config-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.rows-config-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  padding: 4px 10px;
+  transition: background 0.12s, color 0.12s;
+}
+.rows-config-btn:hover { background: rgba(255,255,255,0.11); color: rgba(255,255,255,0.8); }
+.ver-toggle { display: flex; gap: 2px; flex-shrink: 0; }
+.ver-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 5px; color: rgba(255,255,255,0.45); cursor: pointer;
+  padding: 4px 9px; transition: background 0.12s, color 0.12s;
+}
+.ver-btn:hover { background: rgba(255,255,255,0.11); color: rgba(255,255,255,0.7); }
+.ver-btn.active { background: rgba(80,200,130,0.2); border-color: rgba(80,200,130,0.5); color: rgba(120,230,160,0.95); }
+.pad-bass-slash {
+  font-size: 0.65em;
+  font-weight: 400;
+  opacity: 0.7;
+  letter-spacing: 0;
+}
+.pad-ext {
+  position: absolute;
+  bottom: 5px; right: 6px;
+  pointer-events: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.12s;
+  user-select: none;
+  touch-action: none;
+}
+.pad-ext:hover {
+  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.1);
+}
+@media (hover: none) {
+  .pad-ext { color: rgba(255,255,255,0.7); }
+  .pad:active .pad-button { border-color: rgba(255,170,51,0.35); }
+}
+.rows-config-dropdown {
+  display: none;
+  position: fixed;
+  background: #1c2535;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 7px;
+  padding: 10px 14px;
+  z-index: 200;
+  min-width: 110px;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+}
+.rows-config-dropdown.open { display: flex; }
+.rows-config-dropdown label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.75);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rows-config-dropdown input[type=checkbox] { accent-color: rgba(80,200,130,0.9); cursor: pointer; }
+.row-config-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: background 0.1s;
+}
+.row-config-item.drag-over { background: rgba(80,200,130,0.15); }
+.row-config-item.dragging  { opacity: 0.4; }
+.drag-handle {
+  color: rgba(255,255,255,0.3);
+  cursor: grab;
+  font-size: 14px;
+  user-select: none;
+  line-height: 1;
+}
+.drag-handle:active { cursor: grabbing; }
+.row-config-item label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.scale-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.55);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.scale-btn:hover {
+  background: rgba(255,255,255,0.11);
+  color: rgba(255,255,255,0.8);
+}
+.scale-btn.active {
+  background: rgba(80,200,130,0.2);
+  border-color: rgba(80,200,130,0.5);
+  color: rgba(120,230,160,0.95);
+}
+
+.scale-board {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ─────────── Chord Library ─────────── */
+.card.lib {
+  background-color: var(--lib-card);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.18)),
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.08), transparent 60%);
+}
+.card.lib .pad-button {
+  background: linear-gradient(180deg, #2a2118 0%, #1a1410 100%);
+}
+.lib-board {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lib-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.lib-row-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.lib-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lib-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 50px;
+  width: 130px;
+  flex: 0 0 130px;
+}
+@media (max-width: 600px) {
+  .lib-cell { width: calc((100% - 36px) / 4); flex: 0 0 calc((100% - 36px) / 4); }
+}
+
+#chord-syn-tooltip {
+  position: fixed;
+  z-index: 220;
+  display: none;
+  max-width: 420px;
+  background: #111215;
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.75);
+  pointer-events: none;
+}
+#chord-syn-tooltip .syn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+#chord-syn-tooltip .syn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+#chord-syn-tooltip .syn-equiv {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+/* Active state for the piano-roll toggle button next to zoom controls */
+#seq-pianoroll-toggle.active {
+  color: var(--accent);
+  border-color: rgba(255,170,51,0.45);
+  background: rgba(255,170,51,0.10);
+}
+
+#chord-syn-tooltip .syn-equiv-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+.scale-section { display: flex; flex-direction: column; gap: 18px; }
+.scale-section + .scale-section { margin-top: 12px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); }
+.scale-section-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: -10px;
+}
+.scale-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.scale-row-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.scale-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+}
+/* ─────────── shared cell styles (all tabs) ─────────── */
+.major-row .pad-cell,
+.minor-row .pad-cell,
+.scale-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 50px;
+}
+.major-row .pad-cell.empty,
+.minor-row .pad-cell.empty,
+.scale-cell-empty { visibility: hidden; }
+
+/* ─────────── Piano tooltip ─────────── */
+.piano-tooltip {
+  position: fixed;
+  z-index: 200;
+  pointer-events: none;
+  background: #111215;
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 10px;
+  padding: 10px 10px 8px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.75);
+  display: none;
+}
+.piano-tooltip-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─────────── custom chord quality symbols ─────────── */
+.q-dim, .q-halfdim, .q-aug {
+  display: inline-block;
+  vertical-align: 0.65em;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.pad-ext .q-dim, .pad-ext .q-halfdim, .pad-ext .q-aug {
+  vertical-align: 0em;
+}
+.q-dim.q-inline, .q-halfdim.q-inline, .q-aug.q-inline {
+  vertical-align: 0.2em;
+}
+
+/* ─────────── responsive ─────────── */
+@media (max-width: 880px) {
+  body { padding: 8px; }
+  .card { padding: 18px 16px; }
+  .pad-button { min-height: 44px; padding: 8px 4px; }
+  .pad-button .pad-name { font-size: 17px; }
+  .pad-roman, .pad-quality { font-size: 9px; }
+  .pad-button .pad-key { font-size: 7px; padding: 1px 3px; }
+  .controls { overflow-x: visible; }
+  .control.grow { flex: 0 0 auto; min-width: 70px; max-width: 90px; }
+  .control.wide { flex: 0 0 auto; min-width: 80px; max-width: 110px; }
+  .control.grow .control-row input[type="range"],
+  .control.wide .control-row input[type="range"] { min-width: 0; width: 100%; }
+  .key-btn { font-size: 9px; padding: 6px 0; }
+  select { min-width: 0; }
+  .tab { padding: 10px 14px; font-size: 9px; }
+  .major-row, .minor-row, .scale-row { gap: 6px; }
+  .major-row .pad-cell, .minor-row .pad-cell, .scale-cell { min-height: 70px; }
+  .major-flow-label, .minor-flow-label, .scale-row-label { font-size: 8px; letter-spacing: 0.18em; }
+}
+
+@media (max-width: 880px) and (orientation: portrait) {
+  .pad-button .pad-chord { flex-direction: column; align-items: center; gap: 1px; }
+  .pad-button .pad-quality { font-size: 13px; text-align: center; }
+  .pad-key { display: none; }
+  .pad-ext { display: none; }
+  .tab { white-space: nowrap; padding: 10px 8px; letter-spacing: 0.1em; }
+  .help { display: none; }
+  .major-row .pad-cell,
+  .minor-row .pad-cell,
+  .scale-cell { align-items: stretch; min-height: 0; }
+  .pad { justify-content: stretch; }
+  .pad-button { flex: 1; }
+  .pad-quality .q-dim,
+  .pad-quality .q-halfdim,
+  .pad-quality .q-aug { vertical-align: 0; }
+}
+
+@media (max-width: 600px) {
+  .key-row { flex-direction: column; align-items: stretch; gap: 6px; }
+}
+
+/* ─── landscape mobile (phones in landscape, not tablets) ─── */
+@media (max-height: 520px) and (orientation: landscape) {
+  body { padding: 4px; }
+
+  .header { padding: 5px 14px; }
+  .brand { font-size: 13px; }
+  select { font-size: 10px; min-width: 130px; padding: 3px 6px; }
+
+  .tab { padding: 6px 14px; font-size: 9px; }
+
+  .card { padding: 10px 14px 8px; min-height: 0; }
+  .key-row { margin-bottom: 10px; gap: 8px; }
+  .key-btn { padding: 4px 0; font-size: 9px; }
+  .key-row .key-label-text { display: none; }
+
+  .major-section { margin-bottom: 8px; }
+  .minor-section { margin-bottom: 8px; }
+  .major-flow-label, .minor-flow-label { padding-bottom: 4px; font-size: 7px; gap: 6px; }
+  .major-flow-label .icon, .minor-flow-label .icon { width: 10px; height: 10px; }
+
+  .major-row, .minor-row, .scale-row { gap: 5px; }
+  .major-row .pad-cell, .minor-row .pad-cell, .scale-cell { min-height: 48px; }
+
+  .major-row.secdom,
+  .major-row.main,
+  .major-row.modal,
+  .minor-row.sd_v,
+  .minor-row.main,
+  .minor-row.sd_iv,
+  .scale-row { padding: 6px 10px; margin-left: 4px; margin-right: 4px; }
+
+  .pad-button { min-height: 38px; padding: 4px 3px; }
+  .pad-button .pad-name { font-size: 15px; }
+  .pad-button .pad-quality { font-size: 9px; }
+  .pad-button .pad-key { font-size: 6px; padding: 1px 3px; top: 2px; right: 2px; }
+  .pad-roman { font-size: 7px; }
+  .pad-ext { font-size: 8px; padding: 2px 3px; }
+
+  .controls { padding: 5px 12px 6px; gap: 3px; }
+  .control.grow { min-width: 60px; }
+  .control.wide { min-width: 90px; }
+  .control-label { font-size: 7px; }
+  .btn { font-size: 10px; padding: 0 7px; min-width: 22px; }
+  .control-value { font-size: 9px; min-width: 18px; }
+
+  .synth-controls { padding: 6px 14px 8px; }
+  .synth-sliders { grid-template-columns: repeat(6, 1fr); gap: 5px; }
+
+  .ver-toggle .ver-btn { font-size: 9px; padding: 4px 8px; }
+  .scale-type-row { gap: 4px; }
+  .scale-btn { font-size: 9px; padding: 5px 10px; }
+
+  .seq-panel { padding: 6px 14px 8px; }
+  .seq-lane-wrap { overflow-x: auto; }
+  .seq-block { min-width: 4px; }
+  .seq-block-name { font-size: 11px; }
+  .seq-block-beats { font-size: 8px; }
+}
+
+/* ============================================================
+   CHORD SEQUENCER
+   ============================================================ */
+.seq-panel {
+  background: rgba(255,255,255,0.01);
+  border-top: 1px solid var(--panel-edge);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.seq-header {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  user-select: none;
+}
+
+.seq-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+/* Transport navigation — three nav buttons on each side of the
+   Loop/Stop/Play/Rec block. Same gap as the rest of the transport
+   row so the spacing reads as one rhythm. */
+.seq-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* .seq-nav-btn inherits .btn (28px min-width, 24px height) but with
+   tighter horizontal padding — they only hold a small lucide icon, no
+   text, so the default 10px feels stretched. */
+.seq-nav-btn { padding: 0 4px; min-width: 0; }
+.seq-nav-btn .lucide { width: 12px; height: 12px; }
+.seq-play-btn, .seq-stop-btn, .seq-rec-btn, .seq-metro-btn, .seq-loop-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 10px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 4px;
+  height: 24px; box-sizing: border-box;
+}
+.seq-play-btn:hover, .seq-stop-btn:hover, .seq-metro-btn:hover, .seq-loop-btn:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.seq-play-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.seq-metro-btn.active, .seq-loop-btn.active { border-color: var(--accent); color: var(--accent); }
+
+.seq-rec-btn { gap: 4px; }
+.seq-rec-btn .lucide { width: 9px; height: 9px; vertical-align: 0; }
+.seq-rec-btn:hover { border-color: rgba(255,80,80,0.5); color: #ff6060; }
+.seq-rec-btn.armed  { border-color: rgba(255,68,68,0.5); color: rgba(255,68,68,0.6); }
+.seq-rec-btn.active { border-color: #ff4444; color: #ff4444; animation: rec-pulse 1s ease-in-out infinite; }
+@keyframes rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+.seq-timesig-tempo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.seq-rec-beat:empty { display: none; }
+
+.seq-timesig {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 6px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  flex-shrink: 0;
+  height: 24px; box-sizing: border-box;
+}
+.seq-timesig:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.seq-timesig option { background: #1a1b1e; color: var(--text); }
+.seq-clock-sync {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+/* MIDI-clock indicator. Three brightness states convey "no clock / clock
+   present / locked" at a glance; the .beat class is briefly added every
+   quarter-note pulse for a subtle heartbeat. */
+.seq-clock-toggle {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 4px;
+  color: rgba(255,255,255,0.30);
+  font-family: inherit;
+  padding: 0 6px;
+  cursor: pointer;
+  height: 24px; width: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-sizing: border-box;
+  opacity: 0.55;
+  transition: color 0.2s, opacity 0.2s, transform 0.18s, box-shadow 0.18s;
+}
+.seq-clock-toggle [data-lucide],
+.seq-clock-toggle svg { width: 14px; height: 14px; }
+.seq-clock-toggle:hover { border-color: rgba(255,255,255,0.35); color: var(--text); opacity: 1; }
+.seq-clock-toggle.clock-present { color: rgba(255,255,255,0.75); opacity: 0.9; }
+.seq-clock-toggle.clock-locked {
+  color: var(--accent);
+  border-color: rgba(255,170,51,0.55);
+  background: rgba(255,170,51,0.10);
+  opacity: 0.6;
+}
+/* Beat heartbeat: keep the button frame/size/border identical; flip the
+   icon to full-bright accent for ~110 ms. Lucide icons inherit colour
+   via stroke=currentColor, so changing `color` on the button recolors
+   the SVG; opacity bump makes the blink visible against the dimmer
+   locked steady-state. */
+.seq-clock-toggle.beat { color: var(--accent); opacity: 1; }
+.seq-clock-port {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit; font-size: 10px;
+  padding: 0 4px;
+  height: 24px; max-width: 130px;
+  appearance: none; -webkit-appearance: none;
+  box-sizing: border-box;
+}
+.seq-clock-port option { background: #1a1b1e; color: var(--text); }
+
+.seq-rec-beat {
+  font-size: 10px;
+  color: #ff4444;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.seq-tempo-wrap {
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.arrow-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  gap: 0;
+  height: 24px; box-sizing: border-box;
+}
+.seq-tempo-arrow, .ctrl-arrow {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  padding: 3px 0 0 0;
+  cursor: pointer;
+  transform: translateY(-1px);
+  display: flex; align-items: center; align-self: stretch;
+}
+.seq-tempo-val { font-size: 10px; width: 24px; text-align: center; color: var(--text-dim); padding: 4px 0; }
+.seq-tempo-val, .tempo-input {
+  background: none; border: none; outline: none; font-family: inherit;
+  padding: 0; cursor: text;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.seq-tempo-val::-webkit-inner-spin-button,
+.seq-tempo-val::-webkit-outer-spin-button,
+.tempo-input::-webkit-inner-spin-button,
+.tempo-input::-webkit-outer-spin-button { display: none; }
+
+/* ============================================================
+   KEYBOARD
+   ============================================================ */
+.keyboard-panel {
+  background: rgba(255,255,255,0.01);
+  border-top: 1px solid var(--panel-edge);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kb-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.kb-settings-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255,255,255,0.40);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.kb-settings-btn:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.18); }
+.kb-settings-btn [data-lucide] { width: 14px; height: 14px; }
+/* Chord analyzer — live read-out of whatever notes are currently held
+   on the keyboard (mouse or external MIDI). Shows the detected name(s). */
+.chord-analyzer {
+  display: inline-flex;
+  /* align-items: center pins every child to the row's vertical centre
+     regardless of its font-size or whether it has a <sub>. With
+     baseline alignment the row's baseline shifted up when only the
+     small 11-px note list was visible (single key) and shifted back
+     down when the 15-px main label appeared (chord), making the note
+     text visibly jump a couple of pixels between the two states. */
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-dim);
+  /* Locked height — the 15-px main label + flat/sharp glyphs would
+     otherwise grow the row by a few pixels when a chord is detected,
+     pushing the keyboard down each time. */
+  height: 26px;
+  line-height: 26px;
+}
+.chord-analyzer > * { line-height: 1; }
+.chord-analyzer-notes {
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+}
+.chord-analyzer-arrow {
+  color: rgba(255,255,255,0.30);
+  margin: 0 2px;
+}
+.chord-analyzer-main {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 15px;
+}
+/* The universal .q-dim / .q-halfdim / .q-aug rule uses vertical-align:
+   0.65em to lift the SVG glyph as a superscript. Inside the chord
+   analyzer that pushes the inline content up a few pixels relative to
+   the rest of the row, so the chord text appears to jump when a dim
+   chord is matched. Force the SVG out of the inline flow with
+   position: relative + a negative top, keeping the line box height
+   identical with or without a glyph. */
+.chord-analyzer-main .q-dim,
+.chord-analyzer-main .q-halfdim,
+.chord-analyzer-main .q-aug,
+.chord-analyzer-alts .q-dim,
+.chord-analyzer-alts .q-halfdim,
+.chord-analyzer-alts .q-aug {
+  vertical-align: baseline;
+  width: 0.55em;
+  height: 0.55em;
+  position: relative;
+  top: -0.45em;
+}
+.chord-analyzer-alts {
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+}
+.chord-analyzer-unknown { color: rgba(255,255,255,0.30); }
+.chord-analyzer sub { font-size: 0.7em; }
+
+.kb-wrap {
+  display: flex;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+/* Centre the keyboard when there's spare horizontal room, but collapse
+   the auto-margins to 0 when content overflows so the scrollbar maps
+   to the full A0–C8 range (no clipped-left-edge bug from
+   justify-content: center). */
+.kb-wrap > .kb-container { margin-left: auto; margin-right: auto; }
+.kb-wrap::-webkit-scrollbar       { height: 6px; }
+.kb-wrap::-webkit-scrollbar-track { background: transparent; }
+.kb-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+.kb-wrap::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+
+.kb-scroll-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.kb-scroll-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0px 6px 4px;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+.kb-scroll-btn:active { background: rgba(255,255,255,0.1); color: var(--text); }
+.kb-scroll-track {
+  flex: 1;
+  position: relative;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  cursor: grab;
+}
+.kb-scroll-track:active { cursor: grabbing; }
+.kb-drag-thumb {
+  display: block;
+  position: absolute;
+  top: 0;
+  height: 4px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.kb-container {
+  position: relative;
+  flex-shrink: 0;
+  user-select: none;
+}
+.kb-white {
+  position: absolute;
+  top: 0;
+  background: #f0ece4;
+  border: 1px solid #888;
+  border-radius: 0 0 5px 5px;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5px;
+  touch-action: none;
+}
+.kb-white:hover  { background: #fffbe8; }
+.kb-white.active,
+.kb-white.pad-active { background: var(--accent); }
+.kb-black {
+  position: absolute;
+  top: 0;
+  background: #1c1c1e;
+  border-radius: 0 0 4px 4px;
+  cursor: pointer;
+  z-index: 2;
+  box-sizing: border-box;
+  touch-action: none;
+}
+.kb-black:hover  { background: #2e2e32; }
+.kb-black.active,
+.kb-black.pad-active { background: #b87010; }
+.kb-note-label {
+  font-size: 7px;
+  color: #999;
+  pointer-events: none;
+}
+
+.tempo-sync-btn {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0 0 0 2px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.tempo-sync-btn:hover { color: var(--accent); }
+
+.seq-clear-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 8px;
+  cursor: pointer;
+  height: 24px; box-sizing: border-box;
+  display: inline-flex; align-items: center;
+}
+.seq-clear-btn:hover { border-color: rgba(255,80,80,0.5); color: #ff6060; }
+
+.seq-zoom-btns {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 2px;
+}
+.seq-zoom-btns .btn {
+  width: 26px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+.seq-arrangement-tools {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 4px; row-gap: 6px;
+  margin: 12px 0;
+}
+/* Snap-unit dropdown (track + roll toolbars). Matches .seq-timesig style. */
+.seq-snap-select {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 4px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  appearance: none; -webkit-appearance: none;
+  width: 34px; min-width: 34px; max-width: 34px;
+  flex-shrink: 0;
+  height: 22px; box-sizing: border-box;
+  text-align: center;
+  margin: 0 4px;
+}
+.seq-snap-select:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.seq-snap-select:focus { outline: none; }
+.seq-snap-select option { background: #1a1b1e; color: var(--text); }
+
+/* Experimental: snap knob next to the dropdown.
+   - Rotates to show the current snap unit (-135° = 1/4, +135° = 4).
+   - The unit label sits in the center.
+   - Click toggles SEQ.arrSnap (off-state dims the knob).
+   - Drag/wheel cycles through SNAP_VALUES. */
+.seq-snap-knob {
+  position: relative;
+  display: inline-block;
+  width: 22px; height: 22px;
+  flex: 0 0 22px;
+  min-width: 22px; min-height: 22px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  /* ON state — matches the magnet button's .active style. */
+  background: rgba(255,170,51,0.12);
+  border: 1.5px solid var(--accent);
+  cursor: pointer;
+  margin: 0 4px;
+  vertical-align: middle;
+  align-self: center;
+  touch-action: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.seq-snap-knob:hover { background: rgba(255,170,51,0.20); }
+.seq-snap-knob.off {
+  background: transparent;
+  border-color: rgba(255,255,255,0.2);
+}
+.seq-snap-knob.off:hover { border-color: rgba(255,255,255,0.5); }
+.seq-snap-knob-ind {
+  position: absolute;
+  left: 50%; bottom: calc(50% + 8px);
+  width: 1.5px; height: 5px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: 50% calc(100% + 8px);
+  transform: translate(-50%, 0) rotate(var(--ang, 0deg));
+  pointer-events: none;
+}
+.seq-snap-knob.off .seq-snap-knob-ind { background: rgba(255,255,255,0.4); }
+.seq-snap-knob-icon {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--accent);
+  pointer-events: none;
+  display: inline-flex;
+}
+.seq-snap-knob-icon .lucide,
+.seq-snap-knob-icon svg { width: 10px; height: 10px; }
+.seq-snap-knob.off .seq-snap-knob-icon { color: rgba(255,255,255,0.5); }
+.seq-snap-knob-tip {
+  position: absolute;
+  left: 50%; bottom: calc(100% + 6px);
+  transform: translateX(-50%) translateY(4px);
+  padding: 2px 6px;
+  background: var(--bg, #1a1b1e);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s, transform 0.1s;
+  z-index: 100;
+}
+.seq-snap-knob-tip::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 100%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--accent);
+}
+.seq-snap-knob.tip-show .seq-snap-knob-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.seq-lane-wrap.arr-tool-pan,
+.seq-lane-wrap.arr-tool-pan .seq-lane,
+.seq-lane-wrap.arr-tool-pan .seq-block,
+.seq-lane-wrap.arr-pan-mode,
+.seq-lane-wrap.arr-pan-mode .seq-lane,
+.seq-lane-wrap.arr-pan-mode .seq-block  { cursor: grab !important; }
+.seq-lane-wrap.arr-panning,
+.seq-lane-wrap.arr-panning .seq-lane,
+.seq-lane-wrap.arr-panning .seq-block   { cursor: grabbing !important; }
+.seq-lane-wrap.arr-tool-erase .seq-lane { cursor: not-allowed; }
+.seq-marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: rgba(255,170,51,0.10);
+  pointer-events: none;
+  z-index: 50;
+}
+.seq-lane-wrap.arr-tool-merge .seq-block { cursor: cell; }
+.seq-lane-wrap.arr-tool-split .seq-block { cursor: col-resize; }
+.seq-lane-wrap.arr-tool-create .seq-lane { cursor: cell; }
+.seq-create-ghost { opacity: 0.7; }
+.split-guide {
+  position: absolute; top: 0; bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 6;
+}
+.split-ghost-right {
+  position: absolute; top: 0; bottom: 0;
+  border: 1px dashed var(--accent);
+  background: rgba(255,170,51,0.08);
+  pointer-events: none;
+  z-index: 5;
+  box-sizing: border-box;
+}
+.seq-block.merge-pending {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.seq-tool-sep {
+  width: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 2px 4px;
+  align-self: stretch;
+}
+/* Snap picker: magnet toggle button + native <select> packed into a
+   single button-shaped box, same dimensions as .seq-chordlen-wrap.
+   The icon stays a real <button> (clicking it toggles snap on/off),
+   the select dropdown still opens by clicking the value. */
+.seq-snap-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 24px;
+  padding: 0 0 0 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  background: none;
+  box-sizing: border-box;
+  transition: all 0.1s ease;
+}
+.seq-snap-wrap:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.seq-snap-wrap:has(.seq-snap-toggle.active) { border-color: var(--accent); }
+.seq-snap-wrap:has(.seq-snap-toggle.active) .seq-snap-select { color: var(--accent); }
+/* Inner toggle button — strip its own border/background; keep clickable. */
+.seq-snap-wrap .seq-snap-toggle {
+  border: 0 !important;
+  background: none !important;
+  padding: 0 4px 0 0 !important;
+  min-width: 0 !important;
+  height: 100%;
+  color: inherit !important;
+}
+.seq-snap-wrap .seq-snap-toggle:hover { color: var(--text) !important; }
+.seq-snap-wrap .seq-snap-toggle.active {
+  background: none !important;
+  color: var(--accent) !important;
+}
+.seq-snap-wrap .seq-snap-toggle i,
+.seq-snap-wrap .seq-snap-toggle svg { width: 13px; height: 13px; }
+/* Inner select — reset .seq-snap-select chrome (wrapper provides it). */
+.seq-snap-wrap .seq-snap-select {
+  border: 0 !important;
+  background: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100%;
+  color: inherit;
+}
+.seq-snap-wrap .seq-snap-select:focus { outline: none; }
+
+/* Chord-length picker: icon + native <select> packed into a single
+   button-shaped box. The wrapper carries the border + sizing; the
+   inner select drops its own chrome (border/background) so the two
+   read as one control with the icon as a label inside. */
+.seq-chordlen-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 24px;
+  padding: 0 0 0 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 4px;
+  color: var(--text-dim);
+  background: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.seq-chordlen-wrap:hover { border-color: rgba(255,255,255,0.4); color: var(--text); }
+.seq-chordlen-wrap i,
+.seq-chordlen-wrap svg { width: 13px; height: 13px; color: inherit; pointer-events: none; }
+.seq-chordlen-select {
+  /* Reset the .seq-snap-select chrome — wrapper provides it instead. */
+  border: 0 !important;
+  background: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100%;
+  color: inherit;
+}
+.seq-chordlen-select:focus { outline: none; }
+.seq-latency-ctrl {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  letter-spacing: 0.05em;
+}
+.seq-latency-ctrl input {
+  width: 38px; padding: 2px 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  color: rgba(255,255,255,0.85);
+  font: inherit;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.seq-latency-ctrl input::-webkit-outer-spin-button,
+.seq-latency-ctrl input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.seq-latency-ctrl input:focus { border-color: var(--accent); outline: none; }
+.seq-tool-btn {
+  font-size: 13px !important;
+}
+/* Letter-based tool button (e.g. "Q" for Quantize) — match the icon
+   buttons' visual weight so a single character doesn't look thin. */
+.seq-tool-letter {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.seq-tool-btn.active {
+  color: var(--accent) !important;
+  background: rgba(255,170,51,0.12) !important;
+}
+.seq-snap-val-btn {
+  font-size: 10px !important;
+  min-width: 28px;
+  padding: 0 4px !important;
+}
+
+/* Active note row highlight in piano roll */
+.roll-row-active { background: rgba(255,170,51,0.18) !important; }
+.roll-row-active.roll-row-black { background: rgba(255,170,51,0.11) !important; }
+
+/* Mini piano keyboard */
+.roll-keyboard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  z-index: 7;
+  pointer-events: auto;
+  touch-action: none;
+  background: rgb(220,215,200);
+  border-right: 1px solid rgba(0,0,0,0.25);
+}
+.roll-key {
+  position: absolute;
+  left: 0;
+  box-sizing: border-box;
+}
+.roll-key-white {
+  width: 22px;
+  background: transparent;
+  border-bottom: 1px solid rgba(0,0,0,0.13);
+  border-radius: 0 2px 2px 0;
+}
+.roll-key-black {
+  width: 14px;
+  height: 8px;
+  background: #1d1a1a;
+  z-index: 1;
+  border-radius: 0 2px 2px 0;
+}
+.roll-key-white:hover { background: rgba(255,215,100,0.55); }
+.roll-key-black:hover { background: #3a302e; }
+.roll-key-label {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 5px;
+  color: rgba(0,0,0,0.4);
+  pointer-events: none;
+  line-height: 1;
+}
+body.roll-keyboard-on .roll-c-label { left: 26px; }
+
+/* Overflow indicators */
+.roll-overflow-top, .roll-overflow-bot {
+  position: absolute;
+  height: 1px;
+  pointer-events: none;
+  z-index: 9;
+  border-radius: 1px;
+  background: rgb(67, 98, 132);
+}
+
+/* Pen ghost preview */
+.roll-note-ghost {
+  pointer-events: none;
+  opacity: 0.55;
+  background: rgba(255,170,51,0.45);
+  border-color: rgba(255,200,80,0.6);
+  z-index: 8;
+}
+
+/* Eraser tool: hide × buttons, show crosshair on notes */
+body.roll-tool-erase #seq-midi-lane .roll-note-del { display: none !important; }
+body.roll-tool-erase #seq-midi-lane .roll-note { cursor: cell; }
+body.roll-tool-erase #seq-midi-lane.roll-mode { cursor: cell; }
+/* Pen tool: crosshair on roll background */
+body.roll-tool-pen #seq-midi-lane.roll-mode { cursor: crosshair; }
+
+.seq-lane-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+  scrollbar-gutter: stable;
+}
+.seq-lane-wrap::-webkit-scrollbar       { height: 3px; }
+.seq-lane-wrap::-webkit-scrollbar-track { background: transparent; }
+.seq-lane-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+.seq-track-area {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.seq-track-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
+  padding-top: 36px; /* lane-wrap padding (2) + ruler (34) */
+  padding-bottom: 4px;
+}
+.seq-track-label {
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+  min-height: 54px;
+  width: 152px;
+  padding: 4px 6px;
+  user-select: none;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  transition: color 0.15s;
+  box-sizing: border-box;
+  font-family: 'JetBrains Mono', monospace;
+}
+.seq-track-label .lucide { width: 10px; height: 10px; flex-shrink: 0; }
+/* Melody track is no longer used — keyboard notes drop on a Free track instead. */
+.seq-track-label[data-track="melody"], #seq-note-lane { display: none !important; }
+
+/* "+ Add Track" button below the sidebar */
+.seq-add-track-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.08em;
+  background: none;
+  border: 0;
+  color: rgba(255,255,255,0.55);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: color 0.12s;
+  margin-top: 4px;
+}
+@media (hover: hover) {
+  .seq-add-track-btn:hover { color: var(--accent); }
+}
+
+/* Piano-roll detail-view, opens at the bottom of the sequencer when a
+   free track is focused */
+.seq-pianoroll {
+  position: relative;
+  border-top: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.01);
+  padding: 12px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* Edge ticks — one per note that's currently scrolled outside the
+   visible pitch range. Pinned to the top or bottom of the viewport
+   at the note's time-position so the user knows there's something
+   above/below. The soft glow flares INTO the viewport (away from the
+   note), suggesting "scroll this way to see it". */
+.pr-overflow-edge-tick {
+  position: absolute;
+  height: 2px;
+  background: rgba(74,140,255,0.4);
+  pointer-events: none;
+  z-index: 5;
+}
+/* Soft directional glow that fades smoothly from the line into the
+   viewport. A pseudo-element gradient gives a cleaner falloff than
+   box-shadow (which would create a visible secondary band). */
+.pr-overflow-edge-tick.is-above::after,
+.pr-overflow-edge-tick.is-below::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  pointer-events: none;
+}
+.pr-overflow-edge-tick.is-above::after {
+  top: 100%;
+  background: linear-gradient(to bottom, rgba(74,140,255,0.25), transparent);
+}
+.pr-overflow-edge-tick.is-below::after {
+  bottom: 100%;
+  background: linear-gradient(to top, rgba(74,140,255,0.25), transparent);
+}
+/* Velocity-lane strip below the piano-roll body. One bar per note in
+   the focused clip; vertical drag adjusts that note's velocity. */
+.seq-pr-vel-lane {
+  position: relative;
+  height: 56px;
+  background: rgba(0,0,0,0.25);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.seq-pr-vel-lane::-webkit-scrollbar { display: none; }
+.seq-pr-vel-inner {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+}
+/* ====================================================================
+   CHORD VIEW — lyrics-style horizontal display of a chord track's
+   progression. Cards flow left-to-right; a fixed playhead line in the
+   centre marks "now" and the row scrolls behind it during playback.
+   ==================================================================== */
+.seq-chordview {
+  position: relative;
+  background: rgba(0,0,0,0.35);
+  border-top: 1px solid var(--panel-edge);
+  padding: 10px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+body.hide-chordview .seq-chordview { display: none !important; }
+.seq-chordview-header {
+  display: flex; align-items: baseline; gap: 12px;
+}
+.seq-chordview-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+.seq-chordview-track-select {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--panel-edge);
+  color: var(--text-dim);
+  font: inherit; font-size: 10px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  min-width: 0;
+  cursor: pointer;
+}
+.seq-chordview-track-select:hover { border-color: var(--accent); }
+.seq-chordview-body {
+  position: relative;
+  height: 90px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+}
+.seq-chordview-track {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0 50% 0 50%;     /* allows centre-scrolling — first chord can sit at centre, last can scroll past */
+  will-change: transform;
+  /* No transition: the playhead in the arrangement updates per RAF
+     frame, so smoothing the track here would let the chord-view
+     cursor drift behind the real one. */
+}
+.chordview-card {
+  flex: 0 0 auto;
+  position: relative;
+  padding: 6px 14px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.65);
+  white-space: nowrap;
+  transition: color 0.7s ease, border-color 0.7s ease, background 0.7s ease, transform 0.7s ease, opacity 0.7s ease;
+  opacity: 0.7;
+}
+/* Chord name is absolutely positioned so its bottom edge (≈ baseline)
+   sits at a fixed Y from the card bottom — regardless of font-size
+   changes between idle/current/etc. states. Keeps every chord label
+   visually aligned to the same baseline across the row. */
+.chordview-card .chordview-name {
+  position: absolute;
+  left: 50%;
+  bottom: 44%;
+  /* Scale-up for the current chord is set directly in the transform
+     property so CSS transitions interpolate it reliably. The autofit
+     code keeps using font-size for fitting; the class change here
+     only swaps the scale factor, leaving font-size alone. */
+  transform: translateX(-50%) scale(1);
+  transform-origin: bottom center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: white;
+  white-space: nowrap;
+  transition: color 0.7s ease, transform 0.7s ease;
+}
+/* Quality / ext glyphs inside the chord label (sup/sub) are styled the
+   same way the .pad-quality wrapper does so the visual matches the
+   chord-pads grid. */
+.chordview-card .chordview-name sub,
+.chordview-card .chordview-name sup {
+  font-size: 0.4em;
+  font-weight: 500;
+  color: rgba(255,255,255,0.65);
+}
+/* dim / half-dim / aug SVG glyphs inside chord labels — lift them so
+   they sit as a proper superscript next to the chord root (matches
+   the .pad-quality / chord-pad rendering pattern). */
+.chordview-card .chordview-name .q-dim,
+.chordview-card .chordview-name .q-halfdim,
+.chordview-card .chordview-name .q-aug {
+  width: 0.4em;
+  height: 0.4em;
+  vertical-align: 0.55em;
+}
+/* Quality suffix (m / maj7 / sus4 / etc) — plain text following the
+   chord root. Shrunk to 75% so the root dominates the card. The
+   wrapper span is added in _makeChordviewCard at render time. */
+.chordview-card .chordview-name .cv-suffix {
+  font-size: 0.75em;
+  font-weight: 500;
+  /* No own colour — inherits from .chordview-name so it tints to accent
+     together with the root when the card becomes .current. */
+}
+/* Stacked layout: when the inline label is too wide for the card, the
+   autofit code adds .cv-stacked so the suffix hangs BELOW the root's
+   baseline as a small annotation. The root stays at its usual baseline
+   position so all cards (stacked + non-stacked) line up. */
+.chordview-card .chordview-name.cv-stacked .cv-suffix {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  font-size: 0.4em;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.chordview-card .chordview-beats {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.08em;
+}
+/* Loop-boundary marker: a thin vertical accent line sitting in the
+   6 px gap between iterations. No extra spacing — line lives outside
+   the card box via a negative offset. */
+.chordview-card.cv-loop-start::before {
+  content: '';
+  position: absolute;
+  top: 6%; bottom: 6%;
+  left: -4px;
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+/* Inner beat-divider lines — vertical hairlines at every whole-beat
+   boundary inside a card. Drawn below the label, above the background. */
+.chordview-card { position: relative; }
+.chordview-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.chordview-tick {
+  position: absolute;
+  top: 12%; bottom: 12%;
+  width: 1px;
+  background: rgba(255,255,255,0.08);
+  transition: background 0.7s ease;
+}
+.chordview-card.current .chordview-tick { background: rgba(255,170,51,0.20); }
+/* Past and future look identical — only the CURRENT card stands out
+   (accent border + brighter label). Smoother fades and font-size
+   transitions so neighbouring cards ease in/out of focus rather than
+   snapping. */
+.chordview-card.past,
+.chordview-card.future  { opacity: 0.7; }
+.chordview-card.current {
+  opacity: 1;
+  border-color: rgba(255,170,51,0.55);
+  background: rgba(255,170,51,0.10);
+  /* No transform: scale — the tinted background must line up exactly
+     with the chord's time span so the playhead corresponds to the
+     visual region. */
+}
+.chordview-card.current .chordview-name {
+  color: var(--accent);
+  /* No scale-up on .current — only the colour changes. */
+}
+/* Wider cards (≥ 2 beats) get a slightly bigger base type. JS
+   auto-shrinks the font further if a long label still overflows. */
+.chordview-card.wide .chordview-name { font-size: 32px; }
+/* Vertical playhead line down the centre — the chord cards scroll
+   behind it during playback. */
+.seq-chordview-playhead {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255,170,51,0.55);
+  pointer-events: none;
+}
+.seq-chordview-playhead::before {
+  content: '';
+  position: absolute;
+  top: -2px; left: -4px;
+  width: 9px; height: 5px;
+  background: var(--accent);
+  border-radius: 0 0 4px 4px;
+}
+
+.pr-vel-bar {
+  position: absolute;
+  bottom: 0;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+  cursor: ns-resize;
+  touch-action: none;
+  opacity: 0.55;
+  z-index: 1;
+}
+.pr-vel-bar.selected { opacity: 1; z-index: 3; }
+/* Non-selected bars while a selection exists — dim, not interactive,
+   sit behind so the selected bar on top of an overlap is grabbable. */
+.pr-vel-bar.inactive {
+  opacity: 0.15;
+  pointer-events: none;
+  cursor: default;
+  z-index: 0;
+}
+@media (hover: hover) {
+  .pr-vel-bar:hover { opacity: 0.85; }
+  .pr-vel-bar.selected:hover { opacity: 1; }
+  .pr-vel-bar.inactive:hover { opacity: 0.15; }
+}
+
+.seq-pianoroll-resize {
+  position: relative;
+  height: 6px;
+  margin: -2px 0;
+  cursor: ns-resize;
+  border-radius: 2px;
+}
+.seq-pianoroll-resize::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 32px; height: 2px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 1px;
+}
+.seq-pianoroll-resize:hover::before,
+.seq-pianoroll-resize.dragging::before {
+  background: var(--accent);
+  width: 44px;
+}
+.seq-pianoroll-header {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  margin-bottom: 6px;
+}
+.seq-pianoroll-header > .synth-header { display: block; }
+.seq-pianoroll-tools {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 4px; row-gap: 6px;
+}
+.seq-pianoroll-title { flex: 1; margin-top: 12px; }
+.seq-pianoroll-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.78);
+  font-weight: 600;
+}
+.seq-pianoroll-title.muted {
+  color: rgba(255,255,255,0.28);
+  font-weight: 400;
+}
+.seq-pianoroll-close {
+  font-family: inherit; font-size: 12px; line-height: 1;
+  background: transparent; border: 0; padding: 2px 6px;
+  color: rgba(255,255,255,0.45); cursor: pointer;
+  border-radius: 3px;
+}
+.seq-pianoroll-close:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.seq-pianoroll-body {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  max-height: 60vh;
+  background-color: rgba(0,0,0,0.30);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  overflow: auto;
+  cursor: crosshair;
+}
+/* Grid pattern lives on the sizer (which has the full content width/height)
+   so tiling covers the whole scrollable area, not just the body's viewport. */
+.pr-sizer {
+  background-image:
+    linear-gradient(to right,
+      rgba(255,255,255,0.12) 0,
+      rgba(255,255,255,0.12) 1px,
+      transparent 1px,
+      transparent var(--pr-bar-px, var(--bar-px))
+    ),
+    linear-gradient(to right,
+      rgba(255,255,255,0.04) 0,
+      rgba(255,255,255,0.04) 1px,
+      transparent 1px,
+      transparent var(--pr-beat-px, var(--beat-px))
+    ),
+    linear-gradient(to bottom,
+      rgba(255,255,255,0.22) 0,
+      rgba(255,255,255,0.22) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom,
+      transparent 11px,
+      rgba(255,255,255,0.05) 11px,
+      rgba(255,255,255,0.05) 12px,
+      transparent 12px
+    );
+  background-size: var(--pr-bar-px, var(--bar-px)) 100%, var(--pr-beat-px, var(--beat-px)) 100%, 100% 144px, 100% 12px;
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-position:
+    var(--pr-content-left, 0) 0,
+    var(--pr-content-left, 0) 0,
+    var(--pr-content-left, 0) var(--pr-octave-offset, 0),
+    var(--pr-content-left, 0) 0;
+}
+.seq-pianoroll-body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.seq-pianoroll-body::-webkit-scrollbar       { width: 3px; height: 3px; }
+.seq-pianoroll-body::-webkit-scrollbar-track { background: transparent; }
+.seq-pianoroll-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.seq-pianoroll-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+.seq-pianoroll-rulerwrap {
+  overflow: hidden;
+  height: 22px;
+  background: transparent;
+  margin-bottom: -8px; /* cancels the flex-gap to the body below */
+}
+.pr-ruler {
+  position: relative;
+  height: 22px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.08em;
+  user-select: none;
+  cursor: pointer;
+}
+.pr-ruler-bar  { position: absolute; top: 0; width: 1px; height: 100%; background: rgba(255,255,255,0.18); pointer-events: none; }
+.pr-ruler-bar span { position: absolute; left: 3px; top: 2px; line-height: 1; white-space: nowrap; color: rgba(255,255,255,0.62); }
+.pr-ruler-beat { position: absolute; bottom: 0; width: 1px; height: 6px; background: rgba(255,255,255,0.08); pointer-events: none; }
+.seq-pianoroll-body.pr-tool-select { cursor: default; }
+.seq-pianoroll-body.pr-tool-draw   { cursor: crosshair; }
+.seq-pianoroll-body.pr-tool-erase  { cursor: not-allowed; }
+.seq-pianoroll-body.pr-tool-pan,
+.seq-pianoroll-body.pr-pan-mode    { cursor: grab; }
+.seq-pianoroll-body.pr-panning     { cursor: grabbing; }
+.pr-marquee {
+  position: absolute;
+  border: 1px solid var(--accent);
+  background: rgba(255,170,51,0.10);
+  pointer-events: none;
+  z-index: 6;
+}
+.pr-ghost-note {
+  pointer-events: none;
+  opacity: 0.55;
+  background: rgba(255,170,51,0.45) !important;
+  border-color: rgba(255,200,80,0.6) !important;
+  z-index: 8;
+}
+.pr-ghost {
+  top: 0; bottom: 0;
+}
+
+
+/* Piano-keyboard sidebar inside the piano-roll. Per-semitone rows so
+   the notes in the body line up exactly. White rows are full width,
+   black rows are narrower (inset from the left edge), giving it a
+   piano-keyboard look. Sticky-left to stay visible during scroll. */
+.pr-keyboard {
+  position: sticky; left: 0;
+  width: 30px;
+  z-index: 4;
+  background: #f0ece4;
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
+}
+.pr-keyboard-row { cursor: pointer; }
+.pr-keyboard-row:active { filter: brightness(0.9); }
+.pr-keyboard-row.black:active { filter: brightness(1.6); }
+.pr-keyboard-row {
+  position: absolute; left: 0; right: 0;
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 0 2px 2px 0;
+  box-sizing: border-box;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  color: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 0 3px 1px 0;
+}
+.pr-keyboard-row.black {
+  left: 0;
+  right: 36%;
+  background: #1d1a1a;
+  border: 0;
+  border-radius: 0 2px 2px 0;
+  color: transparent;
+  z-index: 2;
+}
+.pr-keyboard-row.pr-key-active {
+  background: rgba(51, 153, 255, 0.55);
+  box-shadow: 0 0 6px rgba(51, 153, 255, 0.6);
+}
+.pr-keyboard-row.black.pr-key-active {
+  background: rgba(51, 153, 255, 0.75);
+}
+.pr-empty {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: rgba(255,255,255,0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  pointer-events: none;
+}
+.pr-note {
+  position: absolute;
+  background: rgba(51,153,255,0.55);
+  border: 1px solid rgba(100,180,255,0.45);
+  border-radius: 2px;
+  color: rgba(255,255,255,0.9);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6px;
+  padding: 0 2px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 2;
+  cursor: grab;
+  white-space: nowrap; overflow: hidden;
+  user-select: none;
+  min-width: 2px;
+}
+.pr-note:hover { background: rgba(51,153,255,0.75); }
+.pr-note.selected {
+  border-color: var(--accent);
+}
+.pr-note-resize {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 4px;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 3;
+}
+.pr-note-resize-left  { left: 0; }
+.pr-note-resize-right { right: 0; }
+.pr-note-resize:hover { background: rgba(255,255,255,0.25); }
+.pr-resize-ghost {
+  pointer-events: none;
+  background: transparent !important;
+  border: 1px dashed var(--accent) !important;
+  opacity: 0.85;
+  z-index: 6;
+}
+.pr-note.moving { opacity: 0.75; cursor: grabbing; }
+.pr-note.pr-alt-ghost {
+  opacity: 0.55;
+  border-style: dashed;
+  pointer-events: none;
+  filter: saturate(0.7);
+}
+/* Note extends past the clip end → the portion past the clip becomes muted,
+   signalling that part won't play. --note-clip-frac is the fraction still
+   inside the clip (set per-note in JS). */
+.pr-note.pr-note-overflow {
+  background: linear-gradient(to right,
+    rgba(51,153,255,0.55) 0,
+    rgba(51,153,255,0.55) calc(var(--note-clip-frac, 1) * 100%),
+    rgba(255,255,255,0.06)  calc(var(--note-clip-frac, 1) * 100%),
+    rgba(255,255,255,0.06)  100%);
+}
+.pr-note.pr-note-overflow:hover {
+  background: linear-gradient(to right,
+    rgba(51,153,255,0.75) 0,
+    rgba(51,153,255,0.75) calc(var(--note-clip-frac, 1) * 100%),
+    rgba(255,255,255,0.10)  calc(var(--note-clip-frac, 1) * 100%),
+    rgba(255,255,255,0.10)  100%);
+}
+.pr-clip-end-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,170,51,0.5) 0,
+    rgba(255,170,51,0.5) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+.pr-note .pr-note-del {
+  position: absolute; top: 0; right: 0; width: 12px; height: 100%;
+  background: transparent; border: 0; padding: 0;
+  color: rgba(255,255,255,0.6); cursor: pointer; font-size: 9px;
+  display: none;
+}
+.pr-note:hover .pr-note-del { display: block; }
+.pr-note .pr-note-del:hover { color: #ff7766; }
+
+/* Visual cue: focused free track lane in the arrangement gets an accent border */
+.seq-lane.focused {
+  border-color: rgba(255,170,51,0.45) !important;
+}
+
+/* Per-track delete (✕) button */
+.seq-th-del {
+  font-family: inherit; font-size: 11px; line-height: 1;
+  background: transparent; border: 0; padding: 0 4px;
+  color: rgba(255,255,255,0.35); cursor: pointer;
+}
+.seq-th-del:hover { color: #ff7766; }
+
+/* Record-arm button on free-track headers. Off = dim circle outline,
+   armed = solid red. While armed and Play hasn't started, the global
+   REC button also lights up. */
+.seq-th-arm {
+  background: transparent; border: 0; padding: 0 2px;
+  color: rgba(255,255,255,0.35); cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.seq-th-arm .lucide { width: 12px; height: 12px; }
+.seq-th-arm.armed {
+  color: #ff5555;
+}
+.seq-th-arm.armed .lucide { fill: currentColor; }
+@media (hover: hover) {
+  .seq-th-arm:hover { color: #ff5555; }
+}
+
+/* "→ Free" convert button on chord-track headers — same minimal look
+   as the other track-header icon buttons (fx / collapse / delete). */
+.seq-th-convert {
+  background: transparent; border: 0; padding: 0 2px;
+  color: rgba(255,255,255,0.35); cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.seq-th-convert .lucide { width: 12px; height: 12px; }
+@media (hover: hover) {
+  .seq-th-convert:hover { color: var(--accent); }
+}
+
+/* Add-track dropdown menu */
+.seq-add-track-menu {
+  position: fixed;
+  background: #16181d;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 60;
+  display: flex; flex-direction: column;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  min-width: 120px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+}
+.seq-add-track-menu button {
+  background: transparent; border: 0; color: rgba(255,255,255,0.7);
+  text-align: left; padding: 6px 10px; cursor: pointer; border-radius: 3px;
+}
+.seq-add-track-menu button:hover { background: rgba(255,170,51,0.12); color: var(--accent); }
+
+/* Inline rename input */
+.seq-th-name-input {
+  font-family: inherit; font-size: 10px; letter-spacing: 0.06em;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,170,51,0.5);
+  border-radius: 2px;
+  color: var(--text);
+  padding: 1px 4px;
+  width: 100%;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.seq-track-label:hover { color: var(--text); }
+.seq-track-label.dragging { opacity: 0.4; }
+.seq-track-label.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
+.seq-track-label.drop-after  { box-shadow: 0  2px 0 0 var(--accent); }
+.seq-track-label.track-collapsed {
+  min-height: 16px; height: 16px !important; padding: 0 6px;
+  flex-direction: row; align-items: center; gap: 6px;
+}
+.seq-track-label.track-collapsed .seq-th-mid,
+.seq-track-label.track-collapsed .seq-th-bot { display: none; }
+.seq-track-label.track-collapsed .seq-th-top { flex: 1; }
+.seq-th-row { display: flex; align-items: center; gap: 4px; min-height: 18px; }
+.seq-th-fx {
+  background: transparent; border: 0; padding: 0 2px;
+  color: rgba(255,255,255,0.35); cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+@media (hover: hover) {
+  .seq-th-fx:hover { color: var(--accent); }
+}
+.seq-th-fx .lucide { width: 12px; height: 12px; }
+
+.track-fx-modal { position: fixed; inset: 0; z-index: 200; }
+.track-fx-modal[hidden] { display: none; }
+.track-fx-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+.track-fx-panel {
+  position: absolute; left: 50%; top: 12vh; transform: translateX(-50%);
+  width: 520px; max-width: calc(100vw - 32px);
+  background: var(--bg, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column;
+  font-family: 'JetBrains Mono', monospace;
+  padding-top: 18px; /* room for the close button in the panel corner */
+}
+.track-fx-header {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.track-fx-adsr {
+  position: absolute;
+  /* 16 modal padding + 60 value column + 10 grid gap → aligns the graph's
+     right edge with the right edge of the slider track itself. */
+  right: 86px; top: 50%;
+  transform: translateY(calc(-50% - 12px));
+  width: 70px; height: 36px;
+  pointer-events: none;
+}
+.track-fx-adsr.hidden { display: none; }
+.track-fx-close { position: absolute; right: 6px; top: 2px; padding: 2px 5px; font-size: 12px; z-index: 2; }
+.track-fx-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+.track-fx-close {
+  background: transparent; border: 0; color: rgba(255,255,255,0.55);
+  font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px;
+}
+.track-fx-close:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+.track-fx-body {
+  padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;
+  max-height: calc(100vh - 120px); overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+  scrollbar-gutter: stable;
+}
+.track-fx-body::-webkit-scrollbar       { width: 3px; }
+.track-fx-body::-webkit-scrollbar-track { background: transparent; }
+.track-fx-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.track-fx-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+.track-fx-row {
+  display: grid; grid-template-columns: 80px 1fr 60px;
+  align-items: center; gap: 10px;
+}
+.track-fx-label {
+  font-size: 10px; color: rgba(255,255,255,0.65); letter-spacing: 0.08em;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.track-fx-sync {
+  background: transparent; border: 0; padding: 0;
+  color: rgba(255,255,255,0.4); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.track-fx-sync:hover { color: var(--accent); }
+.track-fx-sync .lucide { width: 10px; height: 10px; }
+.track-fx-range { accent-color: var(--accent); }
+.track-fx-val { font-size: 10px; color: rgba(255,255,255,0.55); text-align: right; }
+.track-fx-select {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-family: inherit; font-size: 10px;
+  cursor: pointer;
+}
+/* Per-track instrument categorized picker */
+.track-fx-inst-picker { position: relative; }
+.track-fx-inst-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.85);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: inherit; font-size: 10px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; width: 100%;
+}
+.track-fx-inst-btn:hover { border-color: rgba(255,255,255,0.25); }
+.track-fx-inst-chev { color: rgba(255,255,255,0.5); font-size: 9px; }
+.track-fx-inst-menu {
+  position: absolute; top: calc(100% + 2px); left: 0;
+  width: max-content;
+  min-width: 140px;
+  background: var(--bg, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  padding: 4px 0;
+  z-index: 20;
+  max-height: 50vh; overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.track-fx-inst-menu::-webkit-scrollbar       { width: 3px; }
+.track-fx-inst-menu::-webkit-scrollbar-track { background: transparent; }
+.track-fx-inst-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.track-fx-inst-menu::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+.track-fx-inst-menu[hidden] { display: none; }
+.track-fx-inst-cat { position: relative; }
+.track-fx-inst-cat-btn,
+.track-fx-inst-item {
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.82);
+  font-family: inherit; font-size: 10px;
+  padding: 5px 12px 5px 12px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-width: 140px; gap: 12px;
+  text-align: left;
+}
+.track-fx-inst-cat-btn:hover,
+.track-fx-inst-item:hover,
+.track-fx-inst-cat:hover > .track-fx-inst-cat-btn {
+  background: rgba(255,170,51,0.10); color: var(--accent);
+}
+.track-fx-inst-item.selected {
+  color: var(--accent);
+  background: rgba(255,170,51,0.14);
+}
+
+/* Custom confirm dialog */
+.cp-confirm { position: fixed; inset: 0; z-index: 9999; font-family: 'JetBrains Mono', monospace; }
+.cp-confirm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
+.cp-confirm-panel {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  min-width: 280px; max-width: 420px;
+  background: var(--bg, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 16px 18px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cp-confirm-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+.cp-confirm-message {
+  font-size: 12px; color: rgba(255,255,255,0.85); line-height: 1.45;
+}
+.cp-confirm-actions {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;
+}
+.cp-confirm-btn {
+  background: transparent; border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.82);
+  font-family: inherit; font-size: 11px;
+  padding: 5px 12px; border-radius: 4px; cursor: pointer;
+}
+.cp-confirm-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+.cp-confirm-ok { border-color: var(--accent); color: var(--accent); }
+.cp-confirm-ok:hover { background: rgba(255,170,51,0.12); color: var(--accent); }
+.cp-confirm-ok.danger { border-color: #e0524a; color: #e0524a; }
+.cp-confirm-ok.danger:hover { background: rgba(224,82,74,0.14); color: #ff766d; }
+.track-fx-inst-cat-chev { color: rgba(255,255,255,0.4); font-size: 11px; }
+.track-fx-inst-submenu {
+  position: fixed;
+  background: var(--bg, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  padding: 4px 0;
+  min-width: 160px;
+  z-index: 9999;
+  max-height: 50vh; overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.track-fx-inst-submenu::-webkit-scrollbar       { width: 3px; }
+.track-fx-inst-submenu::-webkit-scrollbar-track { background: transparent; }
+.track-fx-inst-submenu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.track-fx-inst-submenu::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+.track-fx-inst-submenu[hidden] { display: none; }
+.track-fx-reset-row { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 4px; }
+.track-fx-reset {
+  background: transparent; border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.65); border-radius: 4px;
+  padding: 6px 10px; font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; cursor: pointer; font-family: inherit;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.track-fx-reset:hover { color: var(--accent); border-color: rgba(255,170,51,0.45); background: rgba(255,170,51,0.05); }
+.seq-th-top { justify-content: flex-start; }
+.seq-th-top .seq-th-name { flex: 1; min-width: 0; }
+.seq-th-name {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.78); font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.12s;
+}
+.seq-th-name:hover { color: var(--accent); }
+.seq-th-collapse {
+  background: transparent; border: 0; padding: 0; cursor: pointer;
+  color: var(--text-dim); display: inline-flex; align-items: center;
+}
+.seq-th-collapse:hover { color: var(--text); }
+.seq-th-inst {
+  width: 100%; font-family: inherit; font-size: 10px;
+  background: rgba(0,0,0,0.4); color: var(--text);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 3px;
+  padding: 2px 4px; cursor: pointer;
+}
+.seq-th-mid select { min-width: 0; }
+.seq-th-bot { gap: 3px; }
+.seq-th-m, .seq-th-s {
+  font-family: inherit; font-size: 9px; font-weight: 700;
+  background: rgba(0,0,0,0.4); color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 3px;
+  width: 18px; height: 18px; padding: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.seq-th-m:hover, .seq-th-s:hover { color: rgba(255,255,255,0.9); }
+.seq-th-m.on { color: #ff7766; border-color: rgba(255,119,102,0.5); background: rgba(255,119,102,0.16); }
+.seq-th-s.on { color: #ffd866; border-color: rgba(255,216,102,0.5); background: rgba(255,216,102,0.16); }
+/* Output (Instrument|MIDI) toggle and channel input inside the per-track
+   FX modal. The Output toggle replaces the old sidebar Inst/MIDI pill. */
+.track-fx-output-toggle {
+  display: flex; gap: 0;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px; overflow: hidden;
+  width: 100%;
+}
+.track-fx-out-btn {
+  background: transparent; border: 0;
+  color: rgba(255,255,255,0.55);
+  font-family: inherit; font-size: 10px; letter-spacing: 0.05em;
+  padding: 4px 0; cursor: pointer;
+  flex: 1 1 50%;
+  transition: background 0.12s, color 0.12s;
+}
+.track-fx-out-btn:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.12); }
+.track-fx-out-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.track-fx-out-btn.active {
+  color: var(--accent);
+  background: rgba(255,170,51,0.12);
+}
+.track-fx-ch-inline {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: rgba(255,255,255,0.55);
+  letter-spacing: 0.05em;
+}
+.track-fx-ch-inline.hidden { display: none; }
+.track-fx-ch-input {
+  width: 28px; padding: 3px 4px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit; font-size: 10px;
+  text-align: center;
+  appearance: textfield; -moz-appearance: textfield;
+}
+.track-fx-ch-input::-webkit-outer-spin-button,
+.track-fx-ch-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.track-fx-ch-input:focus { border-color: var(--accent); outline: none; }
+.track-fx-port-row.hidden,
+.track-fx-in-port-row.hidden,
+.cp-modal-port-row.hidden { display: none; }
+.track-fx-port-select { font-size: 11px; padding: 4px 8px; }
+
+/* Chord-pad modal — wider than the track FX modal so the same knob grid
+   fits without label overlap. Inherits .track-fx-* row/knob styles for the
+   Output/Instrument/Sound sections so they look identical to track modal. */
+.chord-pad-panel { width: 520px; }
+.chord-pad-modal-body {
+  padding: 12px 16px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Top section: chord-pad functions, wrap freely. */
+.cp-modal-funcs {
+  display: flex; flex-wrap: wrap;
+  gap: 10px 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.cp-modal-func {
+  display: flex; align-items: center; gap: 6px;
+}
+.cp-modal-func-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+.cp-modal-select {
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+/* Sound knob grid — same sizing as the per-track FX modal. */
+.cp-modal-sound-row { padding-top: 4px; }
+.cp-modal-sound-row .track-fx-knobs {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px 4px;
+}
+
+.cp-modal-fx-divider {
+  grid-column: 1 / -1;
+  font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  padding: 8px 0 2px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+/* Flat grid of rotary knobs — same layout in track FX modal and chord-pad
+   modal. 6 columns at the 520px panel width gives each knob comfortable
+   breathing room. */
+.track-fx-knobs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px 6px;
+  padding-top: 4px;
+}
+.track-fx-knob-cell {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1px;
+  min-width: 0;
+  position: relative;
+}
+/* Override-state for ADSR/Filter knobs on SF2 instruments: the user's
+   slider replaces the SF2 generator value. Small accent dot above the
+   value label, accent-tinted readout. Double-click the knob clears it. */
+.track-fx-knob-cell.is-override .track-fx-knob-val { color: var(--accent); }
+.track-fx-knob-cell.is-override::before {
+  content: '';
+  position: absolute;
+  top: 18px; left: 50%;
+  width: 9px; height: 9px; margin-left: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+.track-fx-knob-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+.track-fx-knob {
+  position: relative;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: default;
+  touch-action: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.track-fx-knob:hover { border-color: rgba(255,255,255,0.22); background: rgba(0,0,0,0.5); }
+.track-fx-knob-ind {
+  position: absolute;
+  left: 50%; bottom: 50%;
+  width: 2px; height: 11px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: 50% 100%;
+  transform: translate(-50%, 0) rotate(var(--ang, 0deg));
+}
+.track-fx-knob-label {
+  font-size: 9px;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.03em;
+  display: block;
+  text-align: center; line-height: 1.1;
+  white-space: normal;
+}
+.track-fx-knob-label .track-fx-sync {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.track-fx-knob-label .track-fx-sync {
+  background: transparent; border: 0; padding: 0;
+  color: rgba(255,255,255,0.3); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.track-fx-knob-label .track-fx-sync:hover { color: var(--accent); }
+.track-fx-knob-label .track-fx-sync .lucide { width: 9px; height: 9px; }
+.seq-th-ch-wrap {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px; padding: 0 3px;
+}
+.seq-th-ch-lbl { font-size: 8px; color: rgba(255,255,255,0.4); letter-spacing: 0.1em; }
+.seq-th-ch {
+  width: 22px; font-family: inherit; font-size: 9.5px;
+  background: transparent; color: var(--text); border: 0; padding: 1px 0;
+  text-align: center; -moz-appearance: textfield; appearance: textfield;
+}
+.seq-th-ch::-webkit-inner-spin-button, .seq-th-ch::-webkit-outer-spin-button {
+  -webkit-appearance: none; appearance: none; margin: 0;
+}
+/* Track-header volume knob. --ang is set by JS (degrees, 0 = up). The
+   indicator line sits inside, rotating to point from center outward. */
+.seq-th-knob {
+  position: relative;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+  cursor: default;
+  flex: 0 0 18px;
+  margin-left: auto;
+  touch-action: none;
+  transition: border-color 0.12s;
+}
+.seq-th-knob:hover { border-color: rgba(255,255,255,0.25); }
+.seq-th-knob-ind {
+  position: absolute;
+  left: 50%; bottom: 50%;
+  width: 2px; height: 8px;
+  background: var(--accent);
+  border-radius: 1px;
+  transform-origin: 50% 100%;
+  /* Baseline points up (0°). +deg swings the tip clockwise; -deg counter.
+     JS sets --ang from -135° (= 7 o'clock = min) to +135° (= 5 o'clock = max). */
+  transform: translate(-50%, 0) rotate(var(--ang, 0deg));
+}
+.seq-lane.track-collapsed {
+  min-height: 0 !important;
+  height: 16px !important;
+  max-height: 16px !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+.seq-lane.track-collapsed .seq-block {
+  top: 2px !important;
+  bottom: 2px !important;
+  padding: 0 !important;
+  border-radius: 2px !important;
+  min-width: 3px !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+.seq-lane.track-collapsed .seq-block.active {
+  background: rgba(255,170,51,0.5) !important;
+  border-color: var(--accent) !important;
+}
+.seq-lane.track-collapsed .seq-block-name,
+.seq-lane.track-collapsed .seq-delete,
+.seq-lane.track-collapsed .seq-resize,
+.seq-lane.track-collapsed .seq-block-ticks { display: none !important; }
+.seq-tracks-inner {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 100%;
+}
+.midi-lane-resize-handle {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin-top: -3px;
+  flex-shrink: 0;
+  min-width: 100%;
+  transition: border-color 0.15s;
+}
+.midi-lane-resize-handle:hover { border-color: rgba(255,255,255,0.25); }
+#seq-midi-lane.track-collapsed ~ .midi-lane-resize-handle { display: none; }
+
+
+.seq-lane {
+  position: relative;
+  min-height: 54px;
+  padding: 4px;
+  border-radius: 0;
+  cursor: default;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background-color: rgba(0,0,0,0.2);
+  background-image:
+    linear-gradient(to right,
+      rgba(255,255,255,0.18) 0,
+      rgba(255,255,255,0.18) 1px,
+      transparent 1px,
+      transparent var(--bar-px)
+    ),
+    linear-gradient(to right,
+      rgba(255,255,255,0.06) 0,
+      rgba(255,255,255,0.06) 1px,
+      transparent 1px,
+      transparent var(--beat-px)
+    );
+  background-size: var(--bar-px) 100%, var(--beat-px) 100%;
+  background-position: 0 0;
+  background-repeat: repeat-x;
+  background-clip: padding-box;
+  flex: none;
+  min-width: 120px;
+}
+.seq-lane.drag-over { border-color: var(--accent); background: rgba(255,170,51,0.05); }
+.seq-lane.drag-over .seq-drop-hint { color: var(--accent); }
+
+.seq-ruler {
+  position: relative;
+  height: 34px;
+  min-width: 120px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.5);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+.seq-ruler-bar, .seq-ruler-beat { pointer-events: none; }
+.seq-ruler-bar {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: rgba(255,255,255,0.18);
+}
+.seq-ruler-bar span {
+  position: absolute;
+  left: 3px;
+  top: -3px;
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(255,255,255,0.62);
+}
+.seq-ruler-beat {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+}
+
+.seq-drop-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}
+
+.seq-block {
+  position: absolute;
+  top: 4px;
+  touch-action: none;
+  cursor: grab;
+  bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--pad-dark);
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: grab;
+  transition: background 0.1s, border-color 0.1s;
+  padding: 4px 4px;
+  gap: 2px;
+  min-width: 4px;
+  user-select: none;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.seq-block:hover { border-color: rgba(255,255,255,0.35); }
+
+/* Free-track clip blocks (mini-roll preview inside) */
+.seq-clip-block { padding: 4px 6px; }
+.seq-clip-label {
+  position: relative; z-index: 2;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: rgba(255,255,255,0.85);
+  pointer-events: none;
+}
+.seq-clip-mini {
+  position: absolute; left: 0; right: 0; top: 2px; bottom: 2px;
+  pointer-events: none;
+}
+.seq-clip-mini-note {
+  position: absolute;
+  height: 2px;
+  background: rgba(74,140,255,0.85);
+  border-radius: 1px;
+  min-width: 2px;
+}
+.seq-block.selected, .roll-note.selected {
+  border-color: var(--accent);
+}
+.seq-block.active {
+  background: rgba(255,170,51,0.2);
+  border-color: var(--accent);
+}
+.seq-block.moving { opacity: 0.75; cursor: grabbing; }
+.seq-block.overlapping { opacity: 0.6; }
+.overlap-region {
+  position: absolute;
+  top: 4px; bottom: 4px;
+  pointer-events: none;
+  border-radius: 4px;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(74,140,255,0.1) 0,
+    rgba(74,140,255,0.1) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  z-index: 3;
+}
+.seq-block.copy-drag { cursor: copy; }
+.seq-ghost.copy-drag::after {
+  content: '+';
+  position: absolute;
+  top: 1px; right: 4px;
+  font-size: 9px; line-height: 1;
+  color: var(--accent);
+  font-weight: 300;
+  pointer-events: none;
+}
+
+.seq-block-name {
+  font-size: 8px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+/* Floating right-click menu for chord blocks. */
+.seq-block-menu {
+  position: fixed;
+  background: #16181d;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  padding: 8px 10px;
+  z-index: 300;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  font-size: 11px;
+  min-width: 160px;
+}
+.seq-block-menu-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.seq-block-menu-label {
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-faint, rgba(255,255,255,0.45));
+}
+.seq-block-menu select {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--panel-edge);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 11px;
+  min-width: 0;
+  width: 100%;
+}
+.seq-block-menu select:hover { border-color: var(--accent); }
+.seq-note-block {
+  padding: 2px 2px 2px 3px;
+  min-width: 0;
+  overflow: hidden;
+  justify-content: center;
+}
+.seq-note-block .seq-block-name {
+  font-size: 8px;
+  white-space: nowrap;
+}
+.seq-note-block .seq-delete {
+  width: 11px;
+  height: 11px;
+  font-size: 13px;
+  top: 1px;
+  right: 1px;
+}
+.seq-note-block { padding: 2px; }
+.seq-midi-block {
+  padding: 2px 2px 2px 3px;
+  min-width: 0;
+  overflow: hidden;
+  justify-content: center;
+  background: rgba(51, 153, 255, 0.12);
+  border-color: rgba(51, 153, 255, 0.35);
+}
+.seq-midi-block .seq-block-name {
+  font-size: 8px;
+  white-space: nowrap;
+}
+.seq-midi-block .seq-delete {
+  width: 11px;
+  height: 11px;
+  font-size: 13px;
+  top: 1px;
+  right: 1px;
+}
+.seq-midi-block.active {
+  background: rgba(51, 153, 255, 0.3);
+  border-color: rgba(100, 180, 255, 0.8);
+}
+
+/* Piano roll */
+.seq-lane.roll-mode {
+  background-size: var(--bar-px) 100%, var(--beat-px) 100%;
+  background-position: 0 0;
+  background-clip: padding-box;
+  cursor: default;
+  min-height: 0;
+  max-height: 160px;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  touch-action: none;
+}
+.seq-lane.roll-mode::-webkit-scrollbar { display: none; }
+.roll-row {
+  position: absolute;
+  left: 0; right: 0;
+  box-sizing: border-box;
+}
+.roll-row-black { background: rgba(0,0,0,0.22); }
+.roll-row:not(.roll-row-black) { border-bottom: 1px solid rgba(255,255,255,0.03); }
+.roll-c-label {
+  position: absolute;
+  left: 3px;
+  font-size: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  color: rgba(255,255,255,0.2);
+  line-height: 8px;
+  pointer-events: none;
+}
+.roll-note {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(51,153,255,0.55);
+  border: 1px solid rgba(100,180,255,0.45);
+  cursor: grab;
+  box-sizing: border-box;
+  overflow: hidden;
+  touch-action: none;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+}
+.roll-note:hover { background: rgba(51,153,255,0.75); }
+.roll-note.active { background: rgba(51,153,255,0.85); border-color: rgba(150,210,255,0.9); }
+.roll-note.moving { opacity: 0.75; cursor: grabbing; }
+.roll-note-label {
+  font-size: 6px;
+  color: rgba(255,255,255,0.9);
+  padding-left: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.roll-note-del {
+  position: absolute;
+  top: 0; right: 1px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  opacity: 0;
+  line-height: 7px;
+  transition: opacity 0.1s;
+}
+
+.roll-note:hover .roll-note-del { opacity: 1; }
+.roll-note-resize {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+}
+.seq-block-ticks {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  pointer-events: none;
+}
+.seq-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 5px;
+  background: rgba(255,255,255,0.25);
+  transform: translateX(-50%);
+}
+
+.seq-delete {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 11px;
+  height: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 2px;
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.2);
+  line-height: 1;
+  z-index: 20;
+}
+.seq-delete { opacity: 0; transition: opacity 0.15s; }
+.seq-block:hover .seq-delete { opacity: 1; }
+.seq-delete:hover { color: #ff6060; border-color: rgba(255,60,60,0.5); background: #1a1b1e; }
+
+.seq-resize-left {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+  border-radius: 5px 0 0 5px;
+  background: transparent;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.seq-block:hover .seq-resize-left,
+.seq-block:hover .seq-resize { opacity: 1; background: rgba(255,255,255,0.10); }
+.seq-resize {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: ew-resize;
+  border-radius: 0 5px 5px 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-faint);
+  z-index: 1;
+  touch-action: none;
+}
+.seq-resize:hover { background: rgba(255,255,255,0.1); color: var(--text-dim); }
+@media (pointer: coarse) {
+  .seq-resize {
+    width: min(20px, 50%);
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.3);
+  }
+  .seq-lane-wrap {
+    padding-bottom: 10px;
+  }
+}
+
+.seq-playhead {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 1px;
+  background: var(--accent);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+.seq-playhead-global {
+  top: 0;
+  bottom: 0;
+}
+
+.seq-ruler .seq-loop-start,
+.seq-ruler .seq-loop-end {
+  top: 8px;
+  height: 18px;
+  opacity: 0.85;
+}
+.seq-loop-bar {
+  position: absolute;
+  top: 8px;
+  height: 18px;
+  background: rgba(255,170,51,0.20);
+  border: 1px solid rgba(255,170,51,0.55);
+  border-radius: 3px;
+  cursor: pointer;
+  z-index: 5;
+  user-select: none;
+  touch-action: none;
+  box-sizing: border-box;
+}
+.seq-loop-bar:hover { background: rgba(255,170,51,0.28); }
+/* When the global loop is disabled, dim the loop markers/lines/bar so the
+   loop region is still visible but visually de-emphasized. */
+body.loop-disabled .seq-loop-bar,
+body.loop-disabled .seq-loop-line,
+body.loop-disabled .seq-loop-start-line,
+body.loop-disabled .seq-loop-start,
+body.loop-disabled .seq-loop-end { opacity: 0.28; }
+body.loop-disabled .seq-loop-start:hover,
+body.loop-disabled .seq-loop-end:hover,
+body.loop-disabled .seq-loop-bar:hover { opacity: 0.6; }
+.seq-loop-bar-left,
+.seq-loop-bar-right {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: rgba(255,170,51,0.65);
+}
+.seq-loop-bar-left  { left: 0;  border-radius: 3px 0 0 3px; }
+.seq-loop-bar-right { right: 0; border-radius: 0 3px 3px 0; }
+.seq-loop-bar-left:hover,
+.seq-loop-bar-right:hover { background: var(--accent); }
+.seq-ruler { cursor: pointer; }
+/* Loop start marker */
+.seq-loop-start {
+  position: absolute;
+  top: -20px;
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+  cursor: ew-resize;
+  z-index: 20;
+  user-select: none;
+  touch-action: none;
+  opacity: 0.4;
+  transition: border-color 0.1s, color 0.1s, opacity 0.1s;
+}
+.seq-loop-start:hover { border-color: rgba(255,255,255,0.4); color: var(--text); opacity: 1; }
+.seq-loop-start-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: rgba(255,170,51,0.55);
+  pointer-events: none;
+  z-index: 5;
+  transform: translateX(-1px);
+}
+
+/* Loop end marker */
+.seq-loop-end {
+  position: absolute;
+  top: -20px;
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+  cursor: ew-resize;
+  transform: translateX(-11px);
+  z-index: 20;
+  user-select: none;
+  touch-action: none;
+  opacity: 0.4;
+  transition: border-color 0.1s, color 0.1s, opacity 0.1s;
+}
+.seq-loop-end:hover { border-color: rgba(255,255,255,0.4); color: var(--text); opacity: 1; }
+.seq-loop-line {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: rgba(255,170,51,0.55);
+  pointer-events: none;
+  z-index: 5;
+  transform: translateX(-1px);
+}
+
+/* drag source from pad: highlight droppable lane */
+body.seq-dragging-chord #seq-lane,
+body.seq-dragging-note  #seq-note-lane,
+body.seq-dragging-chord #seq-midi-lane,
+body.seq-dragging-note  #seq-midi-lane { border-color: rgba(255,170,51,0.5); background: rgba(255,170,51,0.04); }
+
+.seq-touch-drag-ghost {
+  position: fixed;
+  padding: 4px 10px;
+  background: var(--bg-card, #1a1b1e);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  color: var(--text, #fff);
+  font-size: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, calc(-100% - 12px));
+}
+.seq-ghost {
+  position: absolute;
+  top: 4px; bottom: 4px;
+  border-radius: 5px;
+  background: rgba(255,170,51,0.15);
+  border: 1px dashed var(--accent);
+  pointer-events: none;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,170,51,0.5);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 6px;
+  box-sizing: border-box;
+}

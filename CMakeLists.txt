@@ -105,6 +105,9 @@ target_compile_definitions(MidiHost PRIVATE
     JUCE_USE_WIN_WEBVIEW2=1
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_ASIO=${USE_ASIO}
+    # Dev build: the engine serves ui/compose straight from the source tree so
+    # edits show up on reload (the Patchwork UI itself is bundled as resources).
+    PATCHWORK_UI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/ui"
 )
 
 target_include_directories(MidiHost PRIVATE

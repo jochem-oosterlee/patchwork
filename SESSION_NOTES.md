@@ -12,14 +12,32 @@ Eigen MIDI-router + VST3-host op Windows. MIDI in → optionele VST3-plugin → 
 Web UI (WebView2, in het app-venster)  ◄── ws://127.0.0.1:7681 ──►  C++ engine (JUCE)
   - tab "Patchwork": ui/ (gebundeld,        JSON berichten        - juce::AudioAppComponent
     geserveerd op http://127.0.0.1:7682)                           - VST3 hosting
-  - tab "chord-pad": Desktop/chord-pad                             - MIDI in/out
-    (geserveerd op http://127.0.0.1:7683)                          - ix::WebSocketServer
+  - tab "chord-pad": ui/compose/ (van schijf,                      - MIDI in/out
+    geserveerd op http://127.0.0.1:7683)                           - ix::WebSocketServer
 ```
 
 De engine serveert beide UI's zelf (secure context voor Web MIDI) en toont ze
 in ingebedde WebView2-views: één venster, geen losse Chrome-tab meer.
-chord-pad wordt van schijf geserveerd (`Desktop/chord-pad`, override via
-`chordPadDir` in settings.json); ontbreekt de map, dan start alleen die tab niet.
+De compose-view wordt van schijf geserveerd (`ui/compose/` in de source tree,
+override via `chordPadDir` in settings.json).
+
+**Let op (2026-10-24):** de chord-pad-kant van de WS-koppeling (hello/transport/
+note/cp_set_vst/project_data) is nooit gepusht; `ui/compose/` is de kale
+chord-pad van 16 juni zonder link-code. De engine-kant staat wel in Main.cpp.
+Plan: niet herstellen maar vervangen — zie "Richting" hieronder.
+
+## Richting (besloten 2026-10-24)
+
+Eén app: de engine bezit tijd, audio en model; de web-UI is alleen beeld.
+- Engine: instrument-slots (plugin-chain) op AudioProcessorGraph, transport +
+  MIDI-sequencer in de audio-callback, één projectmodel + undo.
+- UI: één pagina met views Rack (patchsets/instrumenten/sources) en Compose
+  (pads/keyboard/arrangement/piano roll/chord view) op het engine-model.
+- Muziektheorie (CHORD_INTERVALS, voicing, analyzer) blijft in JS; de UI
+  stuurt uitgerekende noten naar de engine.
+- Web Audio-engine van chord-pad verdwijnt uit Patchwork (chord-pad zelf blijft
+  standalone bestaan in zijn eigen repo). Later evt. TinySoundFont in de engine.
+- Tracktion Engine is het alternatief als audiotracks/automation gewenst zijn.
 
 ## Belangrijke bestanden
 
@@ -50,7 +68,8 @@ midi-host/
   Standaard zoekt CMake in `../ASIOSDK` (dus `Desktop/ASIOSDK` naast deze repo);
   anders `-DASIO_SDK_DIR=...` of env var `ASIO_SDK_DIR`. Zonder SDK bouwt hij
   zonder ASIO (warning bij configure).
-- **chord-pad** — clone van github.com/jochem-oosterlee/chord-pad op `Desktop/chord-pad`
+- **compose-view** — `ui/compose/` in deze repo (fork van chord-pad, zonder de SF2;
+  die laadt van de GCS-URL). Geserveerd vanuit de source tree (`PATCHWORK_UI_DIR`).
 - **loopMIDI** voor testen zonder hardware
 
 ## Build + run
