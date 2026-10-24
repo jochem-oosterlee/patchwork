@@ -66,6 +66,26 @@ if(NOT EXISTS "${webview2_SOURCE_DIR}/build/native/include/WebView2.h")
         DESTINATION "${webview2_SOURCE_DIR}")
 endif()
 
+# Steinberg ASIO SDK — not redistributable, download it yourself. Point
+# ASIO_SDK_DIR (cache var or env var) at the SDK root; default is a sibling
+# folder ../ASIOSDK. Without it we build without ASIO (WASAPI etc. still work).
+if(NOT ASIO_SDK_DIR AND DEFINED ENV{ASIO_SDK_DIR})
+    set(ASIO_SDK_DIR "$ENV{ASIO_SDK_DIR}")
+endif()
+set(ASIO_SDK_DIR "${ASIO_SDK_DIR}" CACHE PATH "Steinberg ASIO SDK root (contains common/iasiodrv.h)")
+if(NOT ASIO_SDK_DIR)
+    get_filename_component(ASIO_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ASIOSDK" ABSOLUTE)
+endif()
+if(EXISTS "${ASIO_SDK_DIR}/common/iasiodrv.h")
+    set(ASIO_INCLUDE_DIR "${ASIO_SDK_DIR}/common")
+    set(USE_ASIO 1)
+    message(STATUS "ASIO SDK: ${ASIO_INCLUDE_DIR}")
+else()
+    set(ASIO_INCLUDE_DIR "")
+    set(USE_ASIO 0)
+    message(WARNING "ASIO SDK not found at ${ASIO_SDK_DIR} — building without ASIO. Set ASIO_SDK_DIR to enable it.")
+endif()
+
 juce_add_gui_app(MidiHost
     PRODUCT_NAME "Patchwork"
     COMPANY_NAME "Jochem"
@@ -84,11 +104,11 @@ target_compile_definitions(MidiHost PRIVATE
     JUCE_WEB_BROWSER=1
     JUCE_USE_WIN_WEBVIEW2=1
     JUCE_DISPLAY_SPLASH_SCREEN=0
-    JUCE_ASIO=1
+    JUCE_ASIO=${USE_ASIO}
 )
 
 target_include_directories(MidiHost PRIVATE
-    "C:/Users/joost/Desktop/ASIOSDK/common"
+    ${ASIO_INCLUDE_DIR}
     "${webview2_SOURCE_DIR}/build/native/include"
 )
 

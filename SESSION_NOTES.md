@@ -9,21 +9,23 @@ Eigen MIDI-router + VST3-host op Windows. MIDI in → optionele VST3-plugin → 
 ## Architectuur
 
 ```
-Browser UI (HTML/JS)  ◄── WebSocket ws://127.0.0.1:7681 ──►  C++ engine (JUCE)
-  - device dropdowns                JSON berichten           - juce::AudioAppComponent
-  - test keyboard (Web MIDI)                                  - VST3 hosting
-  - activity log                                              - MIDI in/out
-                                                              - ix::WebSocketServer
+Web UI (WebView2, in het app-venster)  ◄── ws://127.0.0.1:7681 ──►  C++ engine (JUCE)
+  - tab "Patchwork": ui/ (gebundeld,        JSON berichten        - juce::AudioAppComponent
+    geserveerd op http://127.0.0.1:7682)                           - VST3 hosting
+  - tab "chord-pad": Desktop/chord-pad                             - MIDI in/out
+    (geserveerd op http://127.0.0.1:7683)                          - ix::WebSocketServer
 ```
 
-UI wordt geserveerd via Python `http.server` op `http://127.0.0.1:8000/`
-(file:// URL's mogen geen Web MIDI gebruiken — secure context vereist).
+De engine serveert beide UI's zelf (secure context voor Web MIDI) en toont ze
+in ingebedde WebView2-views: één venster, geen losse Chrome-tab meer.
+chord-pad wordt van schijf geserveerd (`Desktop/chord-pad`, override via
+`chordPadDir` in settings.json); ontbreekt de map, dan start alleen die tab niet.
 
 ## Belangrijke bestanden
 
 ```
 midi-host/
-├── CMakeLists.txt            # JUCE + ixwebsocket via FetchContent, JUCE_ASIO=1
+├── CMakeLists.txt            # JUCE + ixwebsocket + WebView2 via FetchContent, ASIO optioneel
 ├── engine/
 │   ├── Main.cpp              # MainComponent: audio thread, UI, knopen alles vast
 │   ├── WebSocketBridge.h     # ix::WebSocketServer wrapper
@@ -34,40 +36,41 @@ midi-host/
 │   ├── app.js                # WS client + Web MIDI test keyboard
 │   └── style.css
 └── build/                    # CMake build dir
-    └── MidiHost_artefacts/Release/MIDI Host.exe
+    └── MidiHost_artefacts/Release/Patchwork.exe
 ```
 
 ## Dependencies
 
-- **Visual Studio 2022 Community** met Native Desktop C++ workload (MSVC compiler)
-- **CMake** in `C:\Program Files\CMake\bin\cmake.exe`
-- **JUCE 8.0.4** — auto-fetched
+- **Visual Studio 2022** (Community of Build Tools) met de C++ workload (MSVC)
+- **CMake** ≥ 3.22
+- **JUCE 8.0.4** — auto-fetched, patches in `patches/` worden bij configure toegepast
 - **ixwebsocket v11.4.5** — auto-fetched (TLS + ZLIB uit, localhost only)
-- **ASIO SDK** — handmatig gedownload, staat op `C:\Users\joost\Desktop\ASIOSDK\common`
-  (pad hard-coded in CMakeLists.txt, JUCE_ASIO=1)
+- **WebView2 SDK** — auto-download van NuGet bij configure
+- **ASIO SDK** — niet redistribueerbaar, zelf downloaden van steinberg.net/asiosdk.
+  Standaard zoekt CMake in `../ASIOSDK` (dus `Desktop/ASIOSDK` naast deze repo);
+  anders `-DASIO_SDK_DIR=...` of env var `ASIO_SDK_DIR`. Zonder SDK bouwt hij
+  zonder ASIO (warning bij configure).
+- **chord-pad** — clone van github.com/jochem-oosterlee/chord-pad op `Desktop/chord-pad`
 - **loopMIDI** voor testen zonder hardware
-- **Python** voor `http.server` om UI te serven
 
 ## Build + run
 
+Vanuit de repo-root:
+
 ```powershell
 # Configure (eenmalig of na CMakeLists wijziging)
-& "C:\Program Files\CMake\bin\cmake.exe" -S "C:\Users\joost\Desktop\midi-host" `
-    -B "C:\Users\joost\Desktop\midi-host\build" -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
 # Bouwen
-& "C:\Program Files\CMake\bin\cmake.exe" --build "C:\Users\joost\Desktop\midi-host\build" `
-    --config Release --parallel
+cmake --build build --config Release --parallel
 
-# Engine starten
-Start-Process "C:\Users\joost\Desktop\midi-host\build\MidiHost_artefacts\Release\MIDI Host.exe"
-
-# UI serven
-python -m http.server 8000 --directory "C:\Users\joost\Desktop\midi-host\ui" --bind 127.0.0.1
-# Open http://127.0.0.1:8000/index.html
+# Starten
+Start-Process "build\MidiHost_artefacts\Release\Patchwork.exe"
 ```
 
-Rebuild-cyclus tijdens dev: `Get-Process "MIDI Host" | Stop-Process -Force; cmake --build ...; Start-Process ...`
+Rebuild-cyclus tijdens dev: `Get-Process Patchwork | Stop-Process -Force; cmake --build ...; Start-Process ...`
+
+Settings staan in `%APPDATA%\MidiHost\settings.json`.
 
 ## Huidige status
 
@@ -86,12 +89,9 @@ Werkend:
 
 ## Open punten
 
-1. **CMake hard-codeert** absoluut pad naar ASIO SDK. Maak relatief of via env var.
-2. **Geen plugin chain** — maar één plugin tegelijk.
-3. **Geen eigen preset management** — VST3 setCurrentProgram exposeert alleen stub-programs, niet de echte Arturia library. Volgende stap: eigen preset save/load via `getStateInformation`/`setStateInformation`, opgeslagen in `presets.json`.
-4. **Encoding** — em-dash in C++ string literals gaf "â□□"; vervangen door ASCII `-`. Niet verder uitgezocht.
-5. **UI nog niet ingebed** — losse Chrome tab, geen WebView2 single-window experience.
-6. **Git** — nog geen `git init`.
+1. **Geen plugin chain** — maar één plugin tegelijk.
+2. **Geen eigen preset management** — VST3 setCurrentProgram exposeert alleen stub-programs, niet de echte Arturia library. Volgende stap: eigen preset save/load via `getStateInformation`/`setStateInformation`, opgeslagen in `presets.json`. (chord-pad's per-track VSTs bewaren hun state al wel.)
+3. **Encoding** — em-dash in C++ string literals gaf "â□□"; inmiddels staat `/utf-8` in CMakeLists en gebruikt Main.cpp weer em-dashes in strings; waarschijnlijk opgelost, nog niet expliciet gecontroleerd.
 
 ## Conventies die in deze sessie gegroeid zijn
 
