@@ -2686,6 +2686,31 @@ body.hide-chordview .seq-chordview { display: none !important; }
 .seq-pianoroll-body.pr-tool-pan,
 .seq-pianoroll-body.pr-pan-mode    { cursor: grab; }
 .seq-pianoroll-body.pr-panning     { cursor: grabbing; }
+/* Track mode (trackroll.js): clips as bands behind the notes. */
+.pr-clip-band {
+  position: absolute; top: 0;
+  background: rgba(255,255,255,0.035);
+  border-left: 1px solid rgba(255,255,255,0.14);
+  border-right: 1px solid rgba(255,255,255,0.14);
+  pointer-events: none;
+  z-index: 1;
+}
+.pr-clip-band.focused {
+  background: rgba(255,170,51,0.07);
+  border-color: rgba(255,170,51,0.45);
+}
+.pr-clip-band span {
+  position: sticky; top: 0;
+  display: inline-block;
+  margin: 2px 0 0 4px; padding: 1px 5px;
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(0,0,0,0.35); border-radius: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 8px);
+}
+.pr-clip-band.focused span { color: var(--accent); }
+.pr-mode-btn { font-size: 9px !important; letter-spacing: 0.14em; text-transform: uppercase; padding: 0 8px !important; }
+
 .pr-marquee {
   position: absolute;
   border: 1px solid var(--accent);
