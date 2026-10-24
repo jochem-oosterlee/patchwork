@@ -646,6 +646,7 @@ function presetSignature(presets) {
     + '|' + (p.sourceIds || []).join(',')
     + '|p=' + (p.pinned ? '1' : '0')
     + '|l=' + (p.loaded ? '1' : '0')
+    + '|fx=' + (p.fx || []).map(f => f.name + (f.bypass ? '~' : '') + (f.loaded ? '*' : '')).join(',')
     + '|loading=' + (currentLoadingIds.has(p.id) ? '1' : '0')).join('\n')
     + '||def=' + ((pendingState && pendingState.defaultSourceId) || '')
     + '||thru=' + thruSig;
@@ -851,6 +852,7 @@ function renderPresets(presets, bypass = false, currentIndex = -1, loading = fal
     meta.appendChild(pluginLbl);
     if ((p.tags || []).length) meta.appendChild(renderTagBadges(p.tags));
     if ((p.sourceIds || []).length) meta.appendChild(renderPresetSources(p.sourceIds, i));
+    meta.appendChild(renderFxStrip(p.fx || [], i));
 
     const actions = document.createElement('div');
     actions.className = 'actions';
@@ -925,6 +927,90 @@ function renderPresets(presets, bypass = false, currentIndex = -1, loading = fal
     }
   }
 }
+
+/* effect chain per preset: chips in series after the instrument */
+function renderFxStrip(fx, presetIndex) {
+  const strip = document.createElement('div');
+  strip.className = 'fx-strip';
+  strip.addEventListener('click', e => e.stopPropagation());
+  fx.forEach((f, fi) => {
+    const chip = document.createElement('span');
+    chip.className = 'fx-chip' + (f.bypass ? ' bypassed' : '') + (f.loaded ? '' : ' offline');
+    chip.title = (f.loaded ? 'open editor' : 'not loaded') + ' — ' + f.path;
+    const pw = document.createElement('button');
+    pw.className = 'fx-power';
+    pw.title = f.bypass ? 'bypassed — click to enable' : 'active — click to bypass';
+    pw.innerHTML = '<i data-lucide="power"></i>';
+    pw.addEventListener('click', e => { e.stopPropagation(); send({ cmd: 'set_fx_bypass', index: presetIndex, fxIndex: fi, on: !f.bypass }); });
+    const nm = document.createElement('span');
+    nm.className = 'fx-name';
+    nm.textContent = f.name || '?';
+    nm.addEventListener('click', e => { e.stopPropagation(); send({ cmd: 'show_fx_editor', index: presetIndex, fxIndex: fi }); });
+    const rm = document.createElement('button');
+    rm.className = 'fx-remove';
+    rm.title = 'remove';
+    rm.innerHTML = '<i data-lucide="x"></i>';
+    rm.addEventListener('click', e => { e.stopPropagation(); send({ cmd: 'remove_fx', index: presetIndex, fxIndex: fi }); });
+    chip.appendChild(pw); chip.appendChild(nm); chip.appendChild(rm);
+    strip.appendChild(chip);
+    if (fi < fx.length - 1) {
+      const arrow = document.createElement('span');
+      arrow.className = 'fx-arrow';
+      arrow.textContent = '›';
+      strip.appendChild(arrow);
+    }
+  });
+  const add = document.createElement('button');
+  add.className = 'fx-add';
+  add.title = 'add effect after the instrument';
+  add.innerHTML = '<i data-lucide="plus"></i><span>fx</span>';
+  add.addEventListener('click', e => { e.stopPropagation(); openFxPicker(presetIndex); });
+  strip.appendChild(add);
+  return strip;
+}
+
+/* effect picker: every VST3 the engine finds on the system */
+const fxModal  = document.getElementById('fx-modal');
+const fxListEl = document.getElementById('fx-list');
+const fxSearch = document.getElementById('fx-search');
+let vst3Plugins = null;
+let fxPickerPreset = -1;
+function openFxPicker(presetIndex) {
+  fxPickerPreset = presetIndex;
+  fxSearch.value = '';
+  openModal(fxModal);
+  if (!vst3Plugins) {
+    fxListEl.innerHTML = '<div class="empty">scanning…</div>';
+    send({ cmd: 'list_vst3_plugins' });
+  } else {
+    renderFxPicker();
+  }
+  setTimeout(() => fxSearch.focus(), 30);
+}
+function renderFxPicker() {
+  const q = fxSearch.value.trim().toLowerCase();
+  const items = (vst3Plugins || []).filter(p => !q || (p.name + ' ' + (p.vendor || '')).toLowerCase().includes(q));
+  fxListEl.innerHTML = '';
+  if (!items.length) {
+    fxListEl.innerHTML = '<div class="empty">' + (vst3Plugins && vst3Plugins.length ? 'no match' : 'no vst3 plugins found in Common Files\\VST3') + '</div>';
+    return;
+  }
+  items.forEach(p => {
+    const row = document.createElement('button');
+    row.className = 'fx-pick';
+    row.innerHTML = `<span class="fx-pick-name">${escapeHtml(p.name)}</span><span class="fx-pick-vendor">${escapeHtml(p.vendor || '')}</span>`;
+    row.addEventListener('click', () => {
+      if (fxPickerPreset >= 0) send({ cmd: 'add_fx', index: fxPickerPreset, path: p.path });
+      fxModal.hidden = true;
+    });
+    fxListEl.appendChild(row);
+  });
+}
+fxSearch.addEventListener('input', renderFxPicker);
+fxSearch.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { const first = fxListEl.querySelector('.fx-pick'); if (first) first.click(); }
+  if (e.key === 'Escape') fxModal.hidden = true;
+});
 
 function groupPlugins(items) {
   const groups = CATEGORIES.map(c => ({ name: c.name, items: [] }));
@@ -1114,6 +1200,10 @@ function connect() {
       case 'arturia_plugins':
         arturiaPlugins = m.items;
         renderLibrary(arturiaPlugins);
+        break;
+      case 'vst3_plugins':
+        vst3Plugins = m.items || [];
+        if (!fxModal.hidden) renderFxPicker();
         break;
       case 'log':
         console.log('[engine]', m.msg);

@@ -747,6 +747,62 @@ body.dragging-preset .preset-row { transition: box-shadow 0.08s; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .preset-row .actions { display: flex; gap: 4px; align-items: center; }
+
+/* effect chain under the preset name */
+.fx-strip { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.fx-chip {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 18px; padding: 0 2px 0 0;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 9px; letter-spacing: 0.04em;
+}
+.fx-chip .fx-name { padding: 0 4px; cursor: pointer; }
+.fx-chip .fx-name:hover { color: var(--accent); }
+.fx-chip.bypassed .fx-name { color: var(--text-faint); text-decoration: line-through; }
+.fx-chip.offline { border-style: dashed; color: var(--text-dim); }
+.fx-power, .fx-remove, .fx-add {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 16px; min-width: 16px; padding: 0;
+  background: transparent; border: 0;
+  color: var(--text-faint);
+  text-transform: none; letter-spacing: 0;
+}
+.fx-power .lucide, .fx-remove .lucide { width: 9px; height: 9px; stroke-width: 2.2; }
+.fx-chip:not(.bypassed) .fx-power { color: var(--accent); }
+.fx-power:hover { color: var(--text); border: 0; background: transparent; }
+.fx-remove { opacity: 0; width: 0; min-width: 0; overflow: hidden; transition: opacity 0.1s, width 0.1s; }
+.fx-chip:hover .fx-remove { opacity: 1; width: 14px; min-width: 14px; }
+.fx-remove:hover { color: var(--danger); border: 0; background: transparent; }
+.fx-arrow { color: var(--text-faint); font-size: 10px; }
+.fx-add {
+  gap: 2px; padding: 0 6px;
+  border: 1px dashed var(--panel-edge);
+  border-radius: 10px;
+  font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.fx-add .lucide { width: 9px; height: 9px; stroke-width: 2.2; }
+.fx-add:hover { color: var(--accent); border-color: rgba(255,170,51,0.45); background: transparent; }
+
+/* effect picker */
+#fx-search { width: 100%; }
+.fx-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow-y: auto; }
+.fx-list .empty { color: var(--text-faint); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; text-align: center; padding: 20px; }
+.fx-pick {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  height: 28px; padding: 0 10px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-transform: none; letter-spacing: 0.02em; font-size: 11px;
+  color: var(--text);
+  text-align: left;
+}
+.fx-pick:hover { border-color: rgba(255,170,51,0.45); background: rgba(255,170,51,0.06); color: var(--text); }
+.fx-pick-vendor { font-size: 9px; color: var(--text-faint); letter-spacing: 0.12em; text-transform: uppercase; }
 .vol-knob {
   position: relative;
   width: 16px; height: 16px;

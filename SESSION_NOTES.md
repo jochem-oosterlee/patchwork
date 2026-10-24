@@ -95,6 +95,20 @@ Opruimpunten voor de compose-fork (alleen laptopgebruik, besloten 2026-10-24):
 touch-glide en touch-handlers, mobiele media queries, PWA-manifest + sw.js
 (in embed al uitgeschakeld) kunnen eruit. chord-pad standalone houdt dat wel.
 
+## Effect-ketens (fase 2, 2026-10-24)
+
+Een preset = instrument-plugin + `fx: [FxSlot{pluginPath, stateB64, bypass}]`,
+in serie verwerkt in `PluginHost::process` (instrument krijgt MIDI, effecten
+krijgen het audiosignaal, stereo in/out). `FxUnit`-slots worden vooraf
+aangemaakt zodat asynchrone loads de volgorde houden. Keten laadt mee met het
+instrument (`loadFxChainForPreset`), state per effect wordt vastgelegd bij
+"save state" (`update_preset_state`). WS: `add_fx`, `remove_fx`,
+`set_fx_bypass`, `show_fx_editor`, `list_vst3_plugins` (recursieve scan van
+`C:\Program Files\Common Files\VST3`, bundles niet betreden). Rack: fx-strook
+met chips onder de presetnaam (power = bypass, naam = editor, × = weg, "+ fx"
+= kiezer met zoekveld). Nog niet: herordenen van effecten, geluidstest (geen
+plugins op deze laptop; datapad getest met `scratchpad/fxtest.py`).
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).

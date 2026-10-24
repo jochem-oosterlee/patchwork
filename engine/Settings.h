@@ -16,12 +16,21 @@ struct Source
     bool         isClockSource = false; // MIDI clock from this source drives tempo
 };
 
+// One effect in a preset's chain, processed in series after the instrument.
+struct FxSlot
+{
+    juce::String pluginPath;
+    juce::String stateB64;
+    bool         bypass = false;
+};
+
 struct Preset
 {
     juce::String          id;            // stable identifier across renames/reorders
     juce::String          name;
-    juce::String          pluginPath;
+    juce::String          pluginPath;    // the instrument
     juce::String          stateB64;
+    std::vector<FxSlot>   fx;            // effect chain after the instrument
     juce::StringArray     tags;
     juce::StringArray     inputs;        // legacy
     juce::uint16          channelMask = 0; // legacy
@@ -46,6 +55,34 @@ struct Patchset
 class Settings
 {
 public:
+    // FX chain <-> JSON, shared by settings, undo snapshots and projects.
+    static juce::var fxToVar (const std::vector<FxSlot>& fx)
+    {
+        juce::Array<juce::var> arr;
+        for (auto& s : fx)
+        {
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("pluginPath", s.pluginPath);
+            o->setProperty ("stateB64",   s.stateB64);
+            o->setProperty ("bypass",     s.bypass);
+            arr.add (juce::var (o.get()));
+        }
+        return arr;
+    }
+    static void fxFromVar (const juce::var& v, std::vector<FxSlot>& out)
+    {
+        out.clear();
+        if (auto* arr = v.getArray())
+            for (auto& it : *arr)
+            {
+                FxSlot s;
+                s.pluginPath = it.getProperty ("pluginPath", "").toString();
+                s.stateB64   = it.getProperty ("stateB64",   "").toString();
+                s.bypass     = (bool) it.getProperty ("bypass", false);
+                if (s.pluginPath.isNotEmpty()) out.push_back (std::move (s));
+            }
+    }
+
     juce::String           audioXml;
     juce::StringArray      enabledDevices; // devices kept open (MIDI settings checkboxes)
     double                 bpm = 120.0;     // manual fallback tempo
@@ -178,6 +215,7 @@ public:
                         for (auto& t : *sidArr) p.sourceIds.add (t.toString());
                     p.pinned = (bool) item.getProperty ("pinned", false);
                     p.volume = (float) (double) item.getProperty ("volume", 1.0);
+                    fxFromVar (item.getProperty ("fx", juce::var()), p.fx);
                     if (p.id.isEmpty()) p.id = juce::Uuid().toString();
                     out.push_back (std::move (p));
                 }
@@ -284,6 +322,7 @@ public:
                 po->setProperty ("sourceIds",   sidArr);
                 po->setProperty ("pinned",      p.pinned);
                 po->setProperty ("volume",      (double) p.volume);
+                po->setProperty ("fx",          fxToVar (p.fx));
                 presetArr.add (juce::var (po.get()));
             }
             so->setProperty ("presets", presetArr);

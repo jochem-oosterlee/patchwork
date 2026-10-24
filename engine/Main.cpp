@@ -1134,6 +1134,81 @@ private:
                 broadcastState();
             });
         }
+        else if (cmd == "add_fx")
+        {
+            // Append an effect to a preset's chain; loads right away if the
+            // preset is live and opens its editor.
+            const int  idx  = (int) v.getProperty ("index", -1);
+            const auto path = v.getProperty ("path", "").toString();
+            juce::MessageManager::callAsync ([this, idx, path]
+            {
+                if (idx < 0 || idx >= (int) settings.currentPresets().size()) return;
+                juce::File f (path);
+                if (! (f.existsAsFile() || f.isDirectory())) { logToUi ("fx not found: " + path); return; }
+                pushUndo();
+                auto& p = settings.currentPresets()[(size_t) idx];
+                p.fx.push_back ({ f.getFullPathName(), {}, false });
+                const int slot = (int) p.fx.size() - 1;
+                settings.save();
+                broadcastState();
+                if (plugin.has (p.id))
+                {
+                    const auto id = p.id;
+                    plugin.loadFx (id, slot, f, [this, id, slot] (const juce::String&, const juce::String& err)
+                    {
+                        if (err.isNotEmpty()) logToUi ("fx load failed: " + err);
+                        else plugin.showFxEditor (id, slot);
+                        broadcastState();
+                    });
+                }
+            });
+        }
+        else if (cmd == "remove_fx")
+        {
+            const int idx = (int) v.getProperty ("index", -1);
+            const int fxi = (int) v.getProperty ("fxIndex", -1);
+            juce::MessageManager::callAsync ([this, idx, fxi]
+            {
+                if (idx < 0 || idx >= (int) settings.currentPresets().size()) return;
+                auto& p = settings.currentPresets()[(size_t) idx];
+                if (fxi < 0 || fxi >= (int) p.fx.size()) return;
+                pushUndo();
+                p.fx.erase (p.fx.begin() + fxi);
+                plugin.removeFx (p.id, fxi);
+                settings.save();
+                broadcastState();
+            });
+        }
+        else if (cmd == "set_fx_bypass")
+        {
+            const int  idx = (int) v.getProperty ("index", -1);
+            const int  fxi = (int) v.getProperty ("fxIndex", -1);
+            const bool on  = (bool) v.getProperty ("on", false);
+            juce::MessageManager::callAsync ([this, idx, fxi, on]
+            {
+                if (idx < 0 || idx >= (int) settings.currentPresets().size()) return;
+                auto& p = settings.currentPresets()[(size_t) idx];
+                if (fxi < 0 || fxi >= (int) p.fx.size()) return;
+                p.fx[(size_t) fxi].bypass = on;
+                plugin.setFxBypass (p.id, fxi, on);
+                settings.save();
+                broadcastState();
+            });
+        }
+        else if (cmd == "show_fx_editor")
+        {
+            const int idx = (int) v.getProperty ("index", -1);
+            const int fxi = (int) v.getProperty ("fxIndex", -1);
+            juce::MessageManager::callAsync ([this, idx, fxi]
+            {
+                if (idx < 0 || idx >= (int) settings.currentPresets().size()) return;
+                plugin.showFxEditor (settings.currentPresets()[(size_t) idx].id, fxi);
+            });
+        }
+        else if (cmd == "list_vst3_plugins")
+        {
+            juce::MessageManager::callAsync ([this] { broadcastVst3Plugins(); });
+        }
         else if (cmd == "list_arturia_plugins")
         {
             juce::MessageManager::callAsync ([this] { broadcastArturiaPlugins(); });
@@ -1513,6 +1588,11 @@ private:
                     pushUndo();
                     auto& p = settings.currentPresets()[(size_t) index];
                     p.stateB64 = plugin.getStateBase64 (p.id);
+                    for (int i = 0; i < (int) p.fx.size(); ++i)
+                    {
+                        const auto s = plugin.getFxStateBase64 (p.id, i);
+                        if (s.isNotEmpty()) p.fx[(size_t) i].stateB64 = s;
+                    }
                     settings.save();
                     broadcastState();
                 }
@@ -1730,6 +1810,23 @@ private:
             juce::Array<juce::var> sidArr;
             for (auto& t : p.sourceIds) sidArr.add (t);
             po->setProperty ("sourceIds",   sidArr);
+            // Effect chain: configured slots merged with what's actually live.
+            const auto infos = plugin.fxInfos (p.id);
+            juce::Array<juce::var> fxArr;
+            for (int i = 0; i < (int) p.fx.size(); ++i)
+            {
+                const auto& s = p.fx[(size_t) i];
+                juce::DynamicObject::Ptr fo = new juce::DynamicObject();
+                const bool live = i < (int) infos.size() && infos[(size_t) i].loaded;
+                fo->setProperty ("name",   live && infos[(size_t) i].name.isNotEmpty()
+                                            ? infos[(size_t) i].name
+                                            : juce::File (s.pluginPath).getFileNameWithoutExtension());
+                fo->setProperty ("path",   s.pluginPath);
+                fo->setProperty ("bypass", s.bypass);
+                fo->setProperty ("loaded", live);
+                fxArr.add (juce::var (fo.get()));
+            }
+            po->setProperty ("fx", fxArr);
             presetArr.add (juce::var (po.get()));
         }
         obj->setProperty ("presets", presetArr);
@@ -2068,6 +2165,79 @@ private:
                 }
     }
 
+    // ---- effect chains ---------------------------------------------------
+
+    Preset* findPresetAnySet (const juce::String& id)
+    {
+        for (auto& set : settings.sets)
+            for (auto& p : set.presets)
+                if (p.id == id) return &p;
+        return nullptr;
+    }
+
+    // Load a preset's configured effects into its live chain (called once the
+    // instrument is up), restoring each one's state and bypass.
+    void loadFxChainForPreset (const juce::String& presetId)
+    {
+        auto* pp = findPresetAnySet (presetId);
+        if (pp == nullptr) return;
+        for (int i = 0; i < (int) pp->fx.size(); ++i)
+        {
+            juce::File f (pp->fx[(size_t) i].pluginPath);
+            if (! f.exists()) { logToUi ("fx not found: " + f.getFullPathName()); continue; }
+            const auto st  = pp->fx[(size_t) i].stateB64;
+            const bool byp = pp->fx[(size_t) i].bypass;
+            plugin.loadFx (presetId, i, f, [this, presetId, i, st, byp] (const juce::String&, const juce::String& err)
+            {
+                if (err.isNotEmpty()) logToUi ("fx load failed: " + err);
+                else
+                {
+                    if (st.isNotEmpty()) plugin.applyFxStateBase64 (presetId, i, st);
+                    plugin.setFxBypass (presetId, i, byp);
+                }
+                broadcastState();
+            });
+        }
+    }
+
+    // Every .vst3 under the system VST3 folder. Bundles are directories named
+    // *.vst3; we don't descend into them.
+    static void collectVst3 (const juce::File& dir, juce::Array<juce::File>& out, int depth)
+    {
+        if (depth > 6) return;
+        for (const auto& entry : juce::RangedDirectoryIterator (dir, false, "*", juce::File::findFilesAndDirectories))
+        {
+            const auto f = entry.getFile();
+            if (f.hasFileExtension ("vst3")) out.add (f);
+            else if (f.isDirectory()) collectVst3 (f, out, depth + 1);
+        }
+    }
+
+    void broadcastVst3Plugins()
+    {
+        const juce::File root ("C:\\Program Files\\Common Files\\VST3");
+        juce::Array<juce::File> files;
+        if (root.isDirectory()) collectVst3 (root, files, 0);
+        std::sort (files.begin(), files.end(), [] (const juce::File& a, const juce::File& b)
+        {
+            return a.getFileNameWithoutExtension().compareIgnoreCase (b.getFileNameWithoutExtension()) < 0;
+        });
+        juce::Array<juce::var> items;
+        for (auto& f : files)
+        {
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("name",   f.getFileNameWithoutExtension());
+            o->setProperty ("path",   f.getFullPathName());
+            const auto vendor = f.getParentDirectory() == root ? juce::String() : f.getParentDirectory().getFileName();
+            o->setProperty ("vendor", vendor);
+            items.add (juce::var (o.get()));
+        }
+        juce::DynamicObject::Ptr obj = new juce::DynamicObject();
+        obj->setProperty ("event", "vst3_plugins");
+        obj->setProperty ("items", items);
+        ws.broadcast (juce::var (obj.get()));
+    }
+
     void broadcastTransport()
     {
         bool loop = false; double ls = 0.0, le = 4.0;
@@ -2130,6 +2300,7 @@ private:
                         settings.pluginPath = path;
                         settings.save();
                     }
+                    loadFxChainForPreset (presetId);
                     if (onLoaded) onLoaded();
                 }
                 ws.broadcast (juce::var (obj.get()));
@@ -2211,6 +2382,7 @@ private:
                 po->setProperty ("sourceIds", sidArr);
                 po->setProperty ("pinned",    p.pinned);
                 po->setProperty ("volume",    (double) p.volume);
+                po->setProperty ("fx",        Settings::fxToVar (p.fx));
                 presetArr.add (juce::var (po.get()));
             }
             so->setProperty ("presets", presetArr);
@@ -2249,6 +2421,7 @@ private:
                             for (auto& t : *sidArr) p.sourceIds.add (t.toString());
                         p.pinned = (bool) item.getProperty ("pinned", false);
                         p.volume = (float) (double) item.getProperty ("volume", 1.0);
+                        Settings::fxFromVar (item.getProperty ("fx", juce::var()), p.fx);
                         if (p.id.isEmpty()) p.id = juce::Uuid().toString();
                         ps.presets.push_back (std::move (p));
                     }
