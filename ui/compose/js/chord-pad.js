@@ -2819,7 +2819,7 @@ function openTrackFxModal(track) {
   engRow.innerHTML = `
     <label class="track-fx-label">Instrument</label>
     <select class="track-fx-select track-fx-port-select" style="flex:1; width:100%">
-      <option value="">— pad instrument —</option>
+      <option value="">— live instrument —</option>
       ${engPresets.map(p => `<option value="${escapeHtml(p.id)}"${p.id === (track.engineTarget || '') ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
     </select>
     <label class="track-fx-ch-inline">

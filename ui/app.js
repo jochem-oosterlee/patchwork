@@ -139,6 +139,12 @@ function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
+// The engine's virtual input for notes from the Compose view keeps its
+// internal name ("chord-pad", stored in sources); the UI shows what it is.
+function deviceLabel(name) {
+  return name === 'chord-pad' ? 'Compose (pads & keyboard)' : name;
+}
+
 function applyPendingState() {
   if (!pendingState) return;
   const { enabledDevices, midiOut, kbOut } = pendingState;
@@ -430,7 +436,7 @@ function renderPatchsetBrowser() {
     meta.appendChild(subline);
     const count = document.createElement('div');
     count.className = 'count';
-    count.textContent = s.count + ' presets';
+    count.textContent = s.count + (s.count === 1 ? ' instrument' : ' instruments');
     const actions = document.createElement('div');
     actions.className = 'actions';
     actions.addEventListener('click', e => e.stopPropagation());
@@ -867,7 +873,7 @@ function renderPresets(presets, bypass = false, currentIndex = -1, loading = fal
     const saveBtn = document.createElement('button');
     saveBtn.className = 'icon-btn';
     saveBtn.dataset.role = 'save';
-    saveBtn.title = 'save current state into this preset';
+    saveBtn.title = 'save the plugin state (and its effects) into this instrument';
     saveBtn.innerHTML = '<i data-lucide="save"></i>';
     saveBtn.disabled = !isActive || isLoading;
     if (saveBtn.disabled) saveBtn.style.opacity = '0.3';
@@ -905,7 +911,7 @@ function renderPresets(presets, bypass = false, currentIndex = -1, loading = fal
   ghostWrap.innerHTML = '';
   const ghost = document.createElement('div');
   ghost.className = 'preset-row ghost';
-  ghost.innerHTML = '<div class="num">+</div><div class="meta"><div class="name">add preset</div><div class="plugin">pick a plugin from the library…</div></div><div class="actions"></div>';
+  ghost.innerHTML = '<div class="num">+</div><div class="meta"><div class="name">add instrument</div><div class="plugin">pick a plugin from the library…</div></div><div class="actions"></div>';
   ghost.addEventListener('click', () => { pickingMode = 'new-preset'; openLibrary(); });
   ghostWrap.appendChild(ghost);
 
@@ -1036,21 +1042,33 @@ fxSearch.addEventListener('keydown', e => {
   if (e.key === 'Escape') fxModal.hidden = true;
 });
 
+// Library groups: Arturia's plugins by their own categories (as before), every
+// other vendor under its folder name, loose files under "Other".
 function groupPlugins(items) {
-  const groups = CATEGORIES.map(c => ({ name: c.name, items: [] }));
+  const groups = CATEGORIES.map(c => ({ name: 'Arturia · ' + c.name, items: [] }));
+  const vendors = new Map();
   const other = { name: 'Other', items: [] };
-  const findGroup = (name) => {
+  const findGroup = (it) => {
     for (let i = 0; i < CATEGORIES.length; i++) {
-      if (CATEGORIES[i].match.includes(name)) return groups[i];
+      if (CATEGORIES[i].match.includes(it.name)) return groups[i];
+    }
+    if (it.vendor) {
+      if (!vendors.has(it.vendor)) vendors.set(it.vendor, { name: it.vendor, items: [] });
+      return vendors.get(it.vendor);
     }
     return other;
   };
-  items.forEach(it => findGroup(it.name).items.push(it));
-  return [...groups.filter(g => g.items.length), ...(other.items.length ? [other] : [])];
+  items.forEach(it => findGroup(it).items.push(it));
+  const vendorGroups = [...vendors.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...groups.filter(g => g.items.length), ...vendorGroups, ...(other.items.length ? [other] : [])];
 }
 
 function renderLibrary(items) {
   gridEl.innerHTML = '';
+  if (!items || !items.length) {
+    gridEl.innerHTML = '<div class="library-empty">no VST3 plugins found in C:\\Program Files\\Common Files\\VST3</div>';
+    return;
+  }
   const groups = groupPlugins(items);
   groups.forEach(g => {
     const groupEl = document.createElement('div');
@@ -1159,7 +1177,7 @@ function connect() {
             cb.type = 'checkbox'; cb.value = d;
             cb.addEventListener('change', sendMidiInputs);
             const txt = document.createElement('span');
-            txt.textContent = d + (online ? '' : '  (offline)');
+            txt.textContent = deviceLabel(d) + (online ? '' : '  (offline)');
             lbl.appendChild(cb); lbl.appendChild(txt);
             inputListEl.appendChild(lbl);
           });
@@ -1419,7 +1437,7 @@ function openSourceEditor(id, fromAdd = false) {
   sourceDeviceEl.innerHTML = '';
   [...devices].forEach(d => {
     const opt = document.createElement('option');
-    opt.value = d; opt.textContent = d;
+    opt.value = d; opt.textContent = deviceLabel(d);
     sourceDeviceEl.appendChild(opt);
   });
   sourceDeviceEl.value = s.deviceName;
@@ -1995,15 +2013,22 @@ window.addEventListener('message', (e) => {
       trRec.classList.toggle('active', !!m.active);
       trRecBeat.textContent = m.beat || '';
       break;
+    case 'prefs':
+      if (typeof m.visualLatencyMs === 'number' && document.activeElement !== displayLatencyEl)
+        displayLatencyEl.value = String(m.visualLatencyMs);
+      break;
   }
 });
+// Compose's playhead offset lives in the song; it's edited from Audio settings.
+const displayLatencyEl = document.getElementById('display-latency');
+displayLatencyEl.addEventListener('change', () => postToCompose('setVisualLatency', parseInt(displayLatencyEl.value, 10) || 0));
 document.querySelectorAll('#compose-tools .ctool').forEach(b => {
   b.addEventListener('mousedown', e => e.preventDefault());   // keep focus where it is
   b.addEventListener('click', () => postToCompose('toggleSection', b.dataset.section));
 });
 padsTargetSel.addEventListener('change', () => postToCompose('setPadTarget', padsTargetSel.value));
 function renderPadsTarget(presets) {
-  const opts = ['<option value="">— rack routing —</option>']
+  const opts = ['<option value="">follow rack</option>']
     .concat(presets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`));
   padsTargetSel.innerHTML = opts.join('');
   padsTargetSel.value = presets.some(p => p.id === padsTargetId) ? padsTargetId : '';

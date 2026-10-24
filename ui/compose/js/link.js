@@ -75,6 +75,7 @@ function linkOnEvent(m) {
         LINK._suppressSaveUntil = performance.now() + 1500;   // don't echo the project straight back
         seqImportProject(m.data);
         linkPushModel(true);
+        linkPostPrefs();
       }
       break;
     default: break;
@@ -257,6 +258,7 @@ function linkSectionStates() {
 }
 function linkPostSections() { linkPostToShell({ event: 'sections', active: linkSectionStates() }); }
 function linkPostPadTarget() { linkPostToShell({ event: 'padTarget', id: LINK.padTarget }); }
+function linkPostPrefs()     { linkPostToShell({ event: 'prefs', visualLatencyMs: SEQ.visualLatencyMs || 0 }); }
 
 if (EMBED) {
   window.addEventListener('message', (e) => {
@@ -278,8 +280,16 @@ if (EMBED) {
       case 'toggleRec':  document.getElementById('seq-rec-btn')?.click();  break;
       case 'nav':        document.getElementById('seq-nav-' + m.arg)?.click(); break;
       case 'click':      document.querySelector(m.arg)?.click(); break;   // dev/test helper
+      case 'setVisualLatency': {
+        const v = Math.max(-50, Math.min(200, parseInt(m.arg, 10) || 0));
+        SEQ.visualLatencyMs = v;
+        const el = document.getElementById('seq-visual-latency'); if (el) el.value = String(v);
+        seqSave();
+        linkPostPrefs();
+        break;
+      }
       case 'scrollTo': window.scrollTo(0, +m.arg || 0); break;
-      case 'query': linkPostSections(); linkPostPadTarget(); break;
+      case 'query': linkPostSections(); linkPostPadTarget(); linkPostPrefs(); break;
       default: break;
     }
   });
@@ -310,9 +320,13 @@ if (EMBED) {
       linkPostToShell({ event: 'save', as: e.shiftKey });
     }
   });
+  // The pad modal's output toggle: its "Instrument" option is the engine here.
+  const padOut = document.querySelector('#chord-pad-modal .track-fx-out-btn[data-out="instrument"]');
+  if (padOut) padOut.textContent = 'Engine';
   linkPostToShell({ event: 'ready' });
   linkPostSections();
   linkPostPadTarget();
+  linkPostPrefs();
 }
 
 // ---------- badge: link status + pad instrument (standalone only) ----------

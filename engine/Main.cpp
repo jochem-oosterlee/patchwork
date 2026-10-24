@@ -763,24 +763,6 @@ private:
 
     void timerCallback() override
     {
-        // Shared engine status in the title bar (bar.beat + tempo), visible on
-        // both tabs so the two apps read as one.
-        {
-            const bool   playing = plugin.playHead.isPlaying.load();
-            const double bpm     = plugin.playHead.bpm.load();
-            const double ppq     = plugin.playHead.ppqPosition.load();
-            const int    tsN     = juce::jmax (1, (int) plugin.playHead.tsNum.load());
-            juce::String s;
-            if (playing)
-            {
-                const int bar  = (int) std::floor (ppq / tsN) + 1;
-                const int beat = (int) std::floor (std::fmod (ppq, (double) tsN)) + 1;
-                s << bar << "." << beat << "   ";
-            }
-            s << juce::String (juce::roundToInt (bpm)) << " BPM";
-            titleBar.setStatus (s, playing);
-        }
-
         // Transport position for the UIs' playheads: every tick while playing,
         // plus one message when play/stop flips or the cursor moves while stopped.
         {
@@ -1938,25 +1920,29 @@ private:
         ws.broadcast (juce::var (obj.get()));
     }
 
+    // The instrument library: every VST3 on the system, with vendor (its
+    // folder under the VST3 root) and, for Arturia, the icon we can serve.
     void broadcastArturiaPlugins()
     {
-        const juce::File vstDir ("C:\\Program Files\\Common Files\\VST3\\Arturia");
-
-        juce::Array<juce::var> items;
-        if (vstDir.isDirectory())
+        const juce::File root ("C:\\Program Files\\Common Files\\VST3");
+        juce::Array<juce::File> files;
+        if (root.isDirectory()) collectVst3 (root, files, 0);
+        std::sort (files.begin(), files.end(), [] (const juce::File& a, const juce::File& b)
         {
-            auto files = vstDir.findChildFiles (juce::File::findFilesAndDirectories, false, "*.vst3");
-            files.sort();
-            for (auto& f : files)
-            {
-                const auto name = f.getFileNameWithoutExtension();
-
-                juce::DynamicObject::Ptr o = new juce::DynamicObject();
-                o->setProperty ("name", name);
-                o->setProperty ("path", f.getFullPathName());
+            return a.getFileNameWithoutExtension().compareIgnoreCase (b.getFileNameWithoutExtension()) < 0;
+        });
+        juce::Array<juce::var> items;
+        for (auto& f : files)
+        {
+            const auto name   = f.getFileNameWithoutExtension();
+            const auto vendor = f.getParentDirectory() == root ? juce::String() : f.getParentDirectory().getFileName();
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("name",   name);
+            o->setProperty ("path",   f.getFullPathName());
+            o->setProperty ("vendor", vendor);
+            if (vendor.equalsIgnoreCase ("Arturia"))
                 o->setProperty ("iconUrl", "/arturia-icon/" + juce::URL::addEscapeChars (name, false));
-                items.add (juce::var (o.get()));
-            }
+            items.add (juce::var (o.get()));
         }
 
         juce::DynamicObject::Ptr obj = new juce::DynamicObject();

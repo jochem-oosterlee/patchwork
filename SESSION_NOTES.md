@@ -143,6 +143,29 @@ touch-handlers, mobiele media queries en PWA-manifest.
   altijd met plugins. De Web Audio-code in de fork blijft staan (verborgen in
   embed); echt verwijderen is een groot refactor van chord-pad.js voor later.
 
+## Rondgang + opruiming (2026-10-24, avond)
+
+Eén look: neutrale basis `#121212` in schil, frame en native venster; knoppen/
+selects/inputs 24 px met rand `rgba(255,255,255,.25)` (`--ctl-edge`).
+Naamgeving: UI zegt overal **instrument** (intern blijft `Preset`/`presets`);
+de virtuele MIDI-input heet in de UI "Compose (pads & keyboard)" (intern
+`chord-pad`, staat zo in sources). Titelbalk: **Live** = instrument voor pads,
+keyboard en tracks zonder eigen instrument; standaard "follow rack" (noten
+gaan als controller door de Rack-routing). Compose-instellingenpopover is weg:
+*Cursor offset* staat als "display latency" in Settings → Audio (via
+`setVisualLatency`/`prefs` over de brug), *Keyboard MIDI* is verborgen (MIDI
+komt via Rack-sources; controller → analyzer is een mogelijke latere feature
+via de engine). Rack-keyboard uit het View-menu (sectie blijft verborgen in de
+DOM). Bibliotheek toont alle VST3's (zelfde scan als de fx-kiezer), Arturia
+gegroepeerd per categorie met iconen, andere fabrikanten per map, met lege
+staat. Pad-modal: Output Engine | MIDI, voicing alleen nog in de tabs-rij.
+Native titelbalk toont geen status meer. Metronoom-icoon = `metronome`.
+Dev-helpers over de relay: `compose_action click <selector>` (in het frame)
+en `shellClick <selector>` (in de schil).
+
+Nog open uit de rondgang: Compose als gevulde layout (tracks + piano roll
+vullen het venster, pads/keyboard inklapbaar) i.p.v. lange scrollpagina.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).

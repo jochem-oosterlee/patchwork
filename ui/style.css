@@ -379,7 +379,7 @@ label {
   display: inline-flex; align-items: center; gap: 6px;
 }
 
-select, button, input[type="text"] {
+select, button, input[type="text"], input[type="number"] {
   background: none;
   color: var(--text);
   border: 1px solid var(--ctl-edge);
@@ -397,7 +397,8 @@ select:hover, button:hover, input[type="text"]:focus {
   color: var(--text);
   outline: none;
 }
-input[type="text"] { background: rgba(0,0,0,0.3); }
+input[type="text"], input[type="number"] { background: rgba(0,0,0,0.3); }
+input[type="number"]:focus { border-color: var(--ctl-edge-hover); outline: none; }
 select option { background: var(--bg); color: var(--text); }
 
 .midi-led {
@@ -1323,6 +1324,11 @@ body.hide-log     .log-section { display: none; }
 .library-detail .body {
   font-size: 11px; color: var(--text-dim);
   line-height: 1.5;
+}
+.library-empty {
+  color: var(--text-faint);
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  text-align: center; padding: 40px 20px;
 }
 .library-group h3 {
   font-size: 9px; color: var(--text-dim);

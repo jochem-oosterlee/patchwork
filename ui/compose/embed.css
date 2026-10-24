@@ -36,7 +36,9 @@ html.embed #cp-modal-reset-row,
 html.embed .control:has(#audio-toggle),
 html.embed .control:has(#master-vol-knob),
 html.embed .control:has(#vol-balance-toggle),
-html.embed .track-fx-out-btn[data-out="instrument"],
+html.embed .control:has(#keyboard-midi-port),     /* MIDI comes in through the Rack's sources */
+html.embed .cp-modal-func:has(#voicing-select),   /* voicing lives in the tabs row */
+html.embed #track-fx-modal .track-fx-out-btn[data-out="instrument"],
 html.embed #kb-settings-btn { display: none !important; }
 
 /* the settings popover used to hang under the gear in our header; now it

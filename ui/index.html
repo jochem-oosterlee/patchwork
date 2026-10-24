@@ -34,9 +34,9 @@
       <!-- Compose view tools: pad instrument + section toggles, driven in the
            compose frame over postMessage. Shown only in the Compose view. -->
       <div id="compose-tools" class="compose-tools no-drag">
-        <label class="pads-target-wrap" title="instrument for the pads and the keyboard">
-          <span>pads</span>
-          <select id="pads-target"><option value="">— rack routing —</option></select>
+        <label class="pads-target-wrap" title="Live instrument: what the pads, the keyboard and tracks without an instrument of their own play. 'Follow rack' sends their notes through the Rack like any controller, so they play whatever is live there.">
+          <span>live</span>
+          <select id="pads-target"><option value="">follow rack</option></select>
         </label>
         <span class="titlebar-sep"></span>
         <button class="ctool" data-section="chord-pad" title="Chord pad"><i data-lucide="layout-grid"></i></button>
@@ -44,7 +44,6 @@
         <button class="ctool" data-section="sequencer" title="Tracks"><i data-lucide="panel-top-bottom-dashed"></i></button>
         <button class="ctool" data-section="pianoroll" title="Piano roll"><i data-lucide="square-chart-gantt"></i></button>
         <button class="ctool" data-section="chordview" title="Chord view"><i data-lucide="captions"></i></button>
-        <button class="ctool" data-section="settings"  title="Compose settings"><i data-lucide="settings"></i></button>
       </div>
       <!-- Window controls (min/max/close) live in the native title bar now. -->
     </header>
@@ -56,15 +55,10 @@
       <button class="menu-item" data-action="save-project"><span class="menu-icon"><i data-lucide="save"></i></span><span class="menu-label">Save project</span><span class="menu-state">Ctrl+S</span></button>
       <button class="menu-item" data-action="save-project-as"><span class="menu-icon"><i data-lucide="save-all"></i></span><span class="menu-label">Save project as…</span></button>
       <div class="menu-sep"></div>
-      <button class="menu-item" data-action="new-from-library"><span class="menu-icon"><i data-lucide="library"></i></span><span class="menu-label">New preset from library…</span></button>
-      <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="file-plus"></i></span><span class="menu-label">New preset from file…</span></button>
+      <button class="menu-item" data-action="new-from-library"><span class="menu-icon"><i data-lucide="library"></i></span><span class="menu-label">New instrument from library…</span></button>
+      <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="file-plus"></i></span><span class="menu-label">New instrument from file…</span></button>
     </div>
     <div id="menu-view" class="dropdown-menu" hidden>
-      <button class="menu-item menu-toggle" data-section="keyboard">
-        <span class="menu-icon"><i data-lucide="piano"></i></span>
-        <span class="menu-label">Keyboard</span>
-        <span class="menu-state"></span>
-      </button>
       <button class="menu-item menu-toggle" data-section="log">
         <span class="menu-icon"><i data-lucide="terminal"></i></span>
         <span class="menu-label">Log</span>
@@ -195,7 +189,7 @@
           </span>
           <span id="tr-pos" class="tr-pos">1.1</span>
           <button id="tr-loop" class="tr-btn" title="loop (song)"><i data-lucide="repeat"></i></button>
-          <button id="tr-metro" class="tr-btn" title="metronome"><i data-lucide="music-2"></i></button>
+          <button id="tr-metro" class="tr-btn" title="metronome"><i data-lucide="metronome"></i></button>
         </div>
         <div id="tempo-widget" class="tempo-widget" title="tempo — click to type, scroll to nudge. Auto-follows MIDI clock when received.">
           <input id="tempo-input" type="number" min="20" max="999" step="0.1" value="120">
@@ -234,7 +228,7 @@
     <div class="modal-backdrop"></div>
     <div class="modal-panel">
       <header class="modal-header">
-        <h2>Plugin library</h2>
+        <h2>Instrument library</h2>
         <button id="library-close" class="modal-close" aria-label="close"><i data-lucide="x"></i></button>
       </header>
       <div class="library-body">
@@ -280,6 +274,9 @@
         </label>
         <label class="form-row">buffer size
           <select id="audio-buffer-size"></select>
+        </label>
+        <label class="form-row" title="Shifts the Compose playhead to match what you hear. Raise it if the cursor runs ahead of the sound.">display latency <em class="hint">(ms, compose playhead)</em>
+          <input id="display-latency" type="number" min="-50" max="200" step="5" value="75">
         </label>
       </div>
     </div>
