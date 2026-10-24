@@ -199,6 +199,25 @@ LIVE-keuze in de schil). Trackkoppen krijgen een chip met de instrumentnaam
 (`.seq-th-inst`: eigen = accent, live = gestippeld, midi). Toggle via de
 titelbalk (`toggleSection instruments` → `body.hide-instruments`).
 
+Schil-panelen pads + keyboard (2026-10-24 laat): elk een eigen instantie van
+de compose-pagina met `?embed=1&panel=pads|keyboard` (html.panel, html.panel-
+<naam>; embed.css toont alleen dat onderdeel), door de schil gezweefd
+(`.shell-panel` in index.html, `shellFloat()` in app.js: slepen, `resize:
+both` met 10 px rand buiten het frame, z-order, positie/zichtbaarheid in
+localStorage `patchwork-shell-panel-*`). Zichtbaar in beide views; toggles
+`.ctool[data-panel]` in de titelbalk (altijd), de songpanelen `.compose-only`.
+Het hoofdframe verbergt zijn eigen pads/keyboard. Panelen hebben geen song:
+geen seq_model/compose_save/load_project/transport. Ze praten met het
+hoofdframe via `BroadcastChannel('patchwork-compose')` (link.js, `linkBus`):
+`padOn/padOff {padId, interval, quality, bassInterval, notes, state}` →
+hoofdframe speelt playChord/releaseChord met `LINK._mirror` (opname +
+highlight, geen geluid; het paneel klinkt zelf via de engine) en het
+keyboard-paneel licht de toetsen op (`_markPadKeys`); `kbOn/kbOff {midi}` →
+`linkMirrorNote` in het hoofdframe; `padState` (bij `uiPrefsSave` van het
+pads-paneel) → hoofdframe neemt key/voicing/octaaf over zodat opgenomen
+akkoorden kloppen; `padTarget` houdt het live-instrument gelijk. Dev:
+`ping`/`pong`, `devEval {panel, code}` via de bus.
+
 Zwevende panelen (besloten 2026-10-24 avond): tracks + piano roll zijn het
 nummer en staan vast in de pagina; chord pad (`#cp-float`, wrapper om
 tabs-header/tabs/pages), keyboard (`#keyboard-panel`) en chord view

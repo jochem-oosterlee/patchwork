@@ -39,12 +39,14 @@
           <select id="pads-target"><option value="">follow rack</option></select>
         </label>
         <span class="titlebar-sep"></span>
-        <button class="ctool" data-section="chord-pad" title="Chord pad"><i data-lucide="layout-grid"></i></button>
-        <button class="ctool" data-section="keyboard"  title="Keyboard"><i data-lucide="keyboard-music"></i></button>
-        <button class="ctool" data-section="sequencer" title="Tracks"><i data-lucide="panel-top-bottom-dashed"></i></button>
-        <button class="ctool" data-section="pianoroll" title="Piano roll"><i data-lucide="square-chart-gantt"></i></button>
-        <button class="ctool" data-section="chordview" title="Chord view"><i data-lucide="captions"></i></button>
-        <button class="ctool" data-section="instruments" title="Instruments (drag onto tracks or pads)"><i data-lucide="library"></i></button>
+        <!-- pads and keyboard are the shell's own floating panels: available in both views -->
+        <button class="ctool" data-panel="pads"     title="Chord pad"><i data-lucide="layout-grid"></i></button>
+        <button class="ctool" data-panel="keyboard" title="Keyboard"><i data-lucide="keyboard-music"></i></button>
+        <span class="titlebar-sep compose-only"></span>
+        <button class="ctool compose-only" data-section="sequencer" title="Tracks"><i data-lucide="panel-top-bottom-dashed"></i></button>
+        <button class="ctool compose-only" data-section="pianoroll" title="Piano roll"><i data-lucide="square-chart-gantt"></i></button>
+        <button class="ctool compose-only" data-section="chordview" title="Chord view"><i data-lucide="captions"></i></button>
+        <button class="ctool compose-only" data-section="instruments" title="Instruments (drag onto tracks or pads)"><i data-lucide="library"></i></button>
       </div>
       <!-- Window controls (min/max/close) live in the native title bar now. -->
     </header>
@@ -164,6 +166,17 @@
          over the same WebSocket as this page. -->
     <div id="view-compose" class="view compose-view">
       <iframe id="compose-frame" title="Compose" allow="midi *; autoplay *"></iframe>
+    </div>
+
+    <!-- Playing surfaces as the shell's own floating panels (each a compose
+         instance in panel mode), usable in the Rack and the Compose view. -->
+    <div id="panel-pads" class="shell-panel" hidden>
+      <div class="shell-panel-handle"><span>Chord pad</span><button class="shell-panel-close" title="hide">✕</button></div>
+      <iframe title="Chord pad" allow="autoplay *"></iframe>
+    </div>
+    <div id="panel-keyboard" class="shell-panel" hidden>
+      <div class="shell-panel-handle"><span>Keyboard</span><button class="shell-panel-close" title="hide">✕</button></div>
+      <iframe title="Keyboard" allow="autoplay *"></iframe>
     </div>
 
     <footer class="statusbar">

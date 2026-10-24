@@ -11,7 +11,13 @@
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Major+Mono+Display&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="chord-pad.css">
-<script>if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');</script>
+<script>
+  // ?embed=1 → inside Patchwork's shell; &panel=pads|keyboard → this instance
+  // is just that one surface, floated by the shell (see link.js, embed.css).
+  if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
+  var _panel = (location.search.match(/[?&]panel=(pads|keyboard)/) || [])[1];
+  if (_panel) document.documentElement.classList.add('panel', 'panel-' + _panel);
+</script>
 <link rel="stylesheet" href="embed.css">
 
 </head>

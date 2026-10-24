@@ -110,6 +110,30 @@ html.embed .seq-th-inst.midi { color: var(--text-dim); }
 /* chord view panel internals */
 html.embed #seq-chordview .seq-chordview-body { flex: 1; min-height: 0; margin: 10px 14px 12px; }
 
+/* Pads and keyboard are the shell's panels (separate instances of this page
+   with ?panel=…), so the main embedded instance hides its own. */
+html.embed:not(.panel) .tabs-header,
+html.embed:not(.panel) .tabs,
+html.embed:not(.panel) .page,
+html.embed:not(.panel) #keyboard-panel { display: none !important; }
+
+/* Panel instances: nothing but the one surface, filling the frame. */
+html.panel body { min-height: 0; height: 100vh; overflow: hidden; }
+html.panel .app { height: 100vh; }
+html.panel .header, html.panel .seq-panel, html.panel .seq-pianoroll, html.panel .seq-chordview,
+html.panel .footer, html.panel #settings-panel, html.panel .section-mini-toolbar,
+html.panel .error-banner { display: none !important; }
+html.panel-pads #keyboard-panel { display: none !important; }
+html.panel-pads .tabs-header { display: none !important; }
+html.panel-pads .tabs { flex-shrink: 0; }
+html.panel-pads .page { display: none; overflow: auto; min-height: 0; }
+html.panel-pads .page.active { display: block; flex: 1 1 auto; }
+html.panel-pads .card { margin: 8px; padding: 16px 24px 14px 36px; }
+html.panel-keyboard .tabs-header, html.panel-keyboard .tabs, html.panel-keyboard .page { display: none !important; }
+html.panel-keyboard #keyboard-panel { display: flex !important; height: 100vh; border-top: 0; padding: 6px 14px 10px; }
+html.panel-keyboard .kb-header-row .chord-analyzer { flex: 1; }
+html.panel-keyboard .kb-wrap { flex: 1; min-height: 0; }
+
 /* the shell's title bar carries the section toggles (driven over postMessage) */
 html.embed .header,
 html.embed .section-mini-toolbar,
@@ -124,6 +148,7 @@ html.embed .seq-controls { display: none !important; }
 /* Web Audio has no role here: pads, keyboard and tracks all play Patchwork
    instruments. Hide chord-pad's own voice controls — the GM instrument
    picker, synth knobs and audio settings — and the keyboard voice settings. */
+html.panel .pw-float-handle { display: none !important; }
 html.embed .cp-modal-inst-row,
 html.embed #cp-modal-waveform-row,
 html.embed .cp-modal-sound-row,

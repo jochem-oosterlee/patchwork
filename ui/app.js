@@ -1971,7 +1971,10 @@ function applyComposeUrl(url) {
   sw.hidden = false;
   if (url !== composeUrlApplied) {
     composeUrlApplied = url;
-    frame.src = url + (url.includes('?') ? '&' : '?') + 'embed=1';
+    const q = url.includes('?') ? '&' : '?';
+    frame.src = url + q + 'embed=1';
+    document.querySelector('#panel-pads iframe').src     = url + q + 'embed=1&panel=pads';
+    document.querySelector('#panel-keyboard iframe').src = url + q + 'embed=1&panel=keyboard';
     let want = 'rack';
     try { want = localStorage.getItem('patchwork-view') || 'rack'; } catch (_) {}
     setView(want);
@@ -1994,7 +1997,7 @@ window.addEventListener('message', (e) => {
       postToCompose('query');
       break;
     case 'sections':
-      document.querySelectorAll('#compose-tools .ctool').forEach(b => {
+      document.querySelectorAll('#compose-tools .ctool[data-section]').forEach(b => {
         b.classList.toggle('active', !!(m.active && m.active[b.dataset.section]));
       });
       break;
@@ -2022,9 +2025,84 @@ window.addEventListener('message', (e) => {
 // Compose's playhead offset lives in the song; it's edited from Audio settings.
 const displayLatencyEl = document.getElementById('display-latency');
 displayLatencyEl.addEventListener('change', () => postToCompose('setVisualLatency', parseInt(displayLatencyEl.value, 10) || 0));
-document.querySelectorAll('#compose-tools .ctool').forEach(b => {
+document.querySelectorAll('#compose-tools .ctool[data-section]').forEach(b => {
   b.addEventListener('mousedown', e => e.preventDefault());   // keep focus where it is
   b.addEventListener('click', () => postToCompose('toggleSection', b.dataset.section));
+});
+
+/* The shell's own floating panels: pads and keyboard, each a compose
+   instance in panel mode. Draggable by the handle, resizable at the corner,
+   remembered per panel, shown in both views. */
+const shellPanels = {};
+function shellFloat(id, defaults) {
+  const panel  = document.getElementById(id);
+  const handle = panel.querySelector('.shell-panel-handle');
+  const key    = 'patchwork-shell-' + id;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) {}
+  const clamp = () => {
+    const r = panel.getBoundingClientRect();
+    if (r.width === 0) return;
+    const maxL = Math.max(8, window.innerWidth  - r.width  - 8);
+    const maxT = Math.max(8, window.innerHeight - r.height - 8);
+    panel.style.left = Math.min(Math.max(8, r.left), maxL) + 'px';
+    panel.style.top  = Math.min(Math.max(8, r.top),  maxT) + 'px';
+  };
+  const persist = () => {
+    const r = panel.getBoundingClientRect();
+    if (r.width === 0) return;
+    try { localStorage.setItem(key, JSON.stringify({ left: r.left, top: r.top, width: r.width, height: r.height, visible: !panel.hidden })); } catch (_) {}
+  };
+  const d = defaults();
+  panel.style.width  = (typeof saved.width  === 'number' ? saved.width  : d.width)  + 'px';
+  panel.style.height = (typeof saved.height === 'number' ? saved.height : d.height) + 'px';
+  panel.style.left   = (typeof saved.left   === 'number' ? saved.left   : d.left)   + 'px';
+  panel.style.top    = (typeof saved.top    === 'number' ? saved.top    : d.top)    + 'px';
+  panel.hidden = !saved.visible;
+  const raise = () => { panel.style.zIndex = String(++shellFloat.z); };
+  panel.addEventListener('pointerdown', raise);
+  panel.addEventListener('mouseenter', raise);
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    panel.classList.add('dragging');
+    const r = panel.getBoundingClientRect();
+    const dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const move = (ev) => { panel.style.left = (ev.clientX - dx) + 'px'; panel.style.top = (ev.clientY - dy) + 'px'; };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      panel.classList.remove('dragging');
+      clamp(); persist();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  });
+  handle.querySelector('.shell-panel-close').addEventListener('click', () => shellPanelShow(id, false));
+  let t = null;
+  new ResizeObserver(() => { clearTimeout(t); t = setTimeout(persist, 200); }).observe(panel);
+  window.addEventListener('resize', clamp);
+  shellPanels[id] = { panel, clamp, persist };
+  return panel;
+}
+shellFloat.z = 120;
+function shellPanelShow(id, show) {
+  const p = shellPanels[id];
+  if (!p) return;
+  p.panel.hidden = !show;
+  if (show) { requestAnimationFrame(p.clamp); p.panel.style.zIndex = String(++shellFloat.z); }
+  p.persist();
+  document.querySelectorAll('#compose-tools .ctool[data-panel]').forEach(b => {
+    if ('panel-' + b.dataset.panel === id) b.classList.toggle('active', show);
+  });
+}
+shellFloat('panel-pads',     () => ({ left: 24, top: 60, width: Math.min(920, window.innerWidth - 48), height: 520 }));
+shellFloat('panel-keyboard', () => ({ left: 24, top: Math.max(60, window.innerHeight - 260), width: Math.min(1180, window.innerWidth - 48), height: 190 }));
+document.querySelectorAll('#compose-tools .ctool[data-panel]').forEach(b => {
+  b.classList.toggle('active', !shellPanels['panel-' + b.dataset.panel].panel.hidden);
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('click', () => shellPanelShow('panel-' + b.dataset.panel, shellPanels['panel-' + b.dataset.panel].panel.hidden));
 });
 padsTargetSel.addEventListener('change', () => postToCompose('setPadTarget', padsTargetSel.value));
 function renderPadsTarget(presets) {

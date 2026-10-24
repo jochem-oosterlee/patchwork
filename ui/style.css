@@ -76,9 +76,45 @@ main#view-rack.active { overflow: auto; }
 .view-switch button:hover { color: var(--text); background: rgba(255,255,255,0.04); border: 0; }
 .view-switch button.active { color: #fff; background: rgba(255,255,255,0.09); }
 
-/* compose tools in the title bar (Compose view only) */
-.compose-tools { display: none; align-items: center; gap: 2px; margin-right: 6px; }
-body.view-compose .compose-tools { display: inline-flex; }
+/* tools in the title bar: live instrument + panel toggles in both views, the
+   song-panel toggles only in Compose */
+.compose-tools { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+.compose-tools .compose-only { display: none; }
+body.view-compose .compose-tools .compose-only { display: inline-flex; }
+body.view-compose .compose-tools span.compose-only { display: inline-block; }
+
+/* the shell's floating panels (pads, keyboard) */
+.shell-panel {
+  position: fixed; z-index: 120;
+  display: flex; flex-direction: column;
+  min-width: 420px; min-height: 140px;
+  max-width: calc(100vw - 16px); max-height: calc(100vh - 16px);
+  background: var(--bg);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 18px 48px rgba(0,0,0,0.65);
+  overflow: hidden;
+  resize: both;
+  padding: 0 10px 10px 0;         /* the resize grip stays outside the frame's reach */
+}
+.shell-panel[hidden] { display: none; }
+.shell-panel-handle {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 14px;
+  margin-right: -10px;
+  border-bottom: 1px solid var(--panel-edge);
+  background: rgba(255,255,255,0.02);
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim);
+  cursor: move; user-select: none;
+  flex-shrink: 0;
+}
+.shell-panel-close {
+  margin-left: auto; height: 20px; padding: 0 6px;
+  border: 1px solid transparent; font-size: 11px; letter-spacing: 0; text-transform: none;
+}
+.shell-panel-close:hover { border-color: rgba(255,255,255,0.15); background: transparent; }
+.shell-panel iframe { flex: 1; width: 100%; min-height: 0; border: 0; display: block; background: transparent; }
+.shell-panel.dragging iframe { pointer-events: none; }
 .ctool {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 26px; padding: 0;

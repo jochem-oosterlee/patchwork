@@ -78,6 +78,7 @@ function linkOnEvent(m) {
       if (LINK.active) linkMirrorNote(m.note | 0, !!m.on && (m.vel | 0) > 0);
       break;
     case 'load_project':
+      if (PANEL) break;                       // panels own no song
       if (m.data && typeof m.data === 'object') {
         LINK._suppressSaveUntil = performance.now() + 1500;   // don't echo the project straight back
         seqImportProject(m.data);
@@ -132,7 +133,7 @@ function linkOnTransport(m) {
       else { state.beatsPerBar = m.tsNum; if (typeof seqUpdateBarLine === 'function') seqUpdateBarLine(); }
     }
   }
-  if (!LINK.active) return;
+  if (!LINK.active || PANEL) return;        // panels don't follow the transport
   if (e.playing && !SEQ.playing) linkEnterPlaying();
   else if (!e.playing && SEQ.playing) linkEnterStopped();
 }
@@ -158,7 +159,7 @@ function linkEnterStopped() {
 // ---------- song model → engine ----------
 
 function linkPushModel(immediate) {
-  if (!LINK.active) return;
+  if (!LINK.active || PANEL) return;
   if (LINK._modelTimer) { clearTimeout(LINK._modelTimer); LINK._modelTimer = null; }
   const send = () => linkSend({ cmd: 'seq_model', model: linkBuildModel() });
   if (immediate) send();
@@ -203,7 +204,7 @@ function linkBuildModel() {
 }
 
 function linkScheduleSave() {
-  if (!LINK.active) return;
+  if (!LINK.active || PANEL) return;
   if (LINK._saveTimer) clearTimeout(LINK._saveTimer);
   LINK._saveTimer = setTimeout(() => {
     LINK._saveTimer = null;
@@ -275,6 +276,13 @@ function linkPrecountThenPlay(startBeat) {
 // The shell owns the chrome; this frame answers to it over postMessage.
 
 const EMBED = document.documentElement.classList.contains('embed');
+// A panel instance is this page reduced to one playing surface (pads or
+// keyboard), floated by the shell. It sounds through the engine like the
+// main instance but owns no song: it reports what is played to the main
+// instance over a BroadcastChannel, which records and mirrors it.
+const PANEL = (location.search.match(/[?&]panel=(pads|keyboard)/) || [])[1] || '';
+const linkBus = (EMBED && typeof BroadcastChannel === 'function') ? new BroadcastChannel('patchwork-compose') : null;
+function linkBusPost(msg) { try { if (linkBus) linkBus.postMessage(Object.assign({ from: PANEL || 'main' }, msg)); } catch (_) {} }
 
 function linkPostToShell(msg) {
   if (!EMBED || window.parent === window) return;
@@ -304,10 +312,7 @@ if (EMBED) {
         linkClampFloats();                     // a panel that just appeared gets its place on screen
         break;
       case 'setPadTarget':
-        LINK.padTarget = m.arg || '';
-        try { localStorage.setItem('patchwork-link-pad-target', LINK.padTarget); } catch (_) {}
-        linkPushModel();
-        linkPostPadTarget();
+        linkSetLiveInstrument(m.arg || '');
         break;
       case 'undo': seqUndo(); break;
       case 'redo': seqRedo(); break;
@@ -390,7 +395,8 @@ function linkFloat({ panel, handle, key, section, defaults, hideTitle }) {
   close.textContent = '✕';
   close.addEventListener('click', (e) => {
     e.stopPropagation();
-    document.querySelector(`.header-section-toggle[data-section="${section}"]`)?.click();
+    if (section === 'instruments') linkToggleInstruments();
+    else document.querySelector(`.header-section-toggle[data-section="${section}"]`)?.click();
   });
   handle.appendChild(close);
   handle.classList.add('pw-float-handle');
@@ -447,32 +453,10 @@ function linkFloat({ panel, handle, key, section, defaults, hideTitle }) {
 }
 
 function linkFloatPanels() {
-  // Chord pad: wrap its heading, tabs and pages in one panel.
-  const header = document.querySelector('.tabs-header');
-  const nav    = document.getElementById('tabs-nav');
-  if (header && nav) {
-    const panel = document.createElement('div');
-    panel.id = 'cp-float';
-    header.parentNode.insertBefore(panel, header);
-    panel.appendChild(header);
-    panel.appendChild(nav);
-    document.querySelectorAll('.page').forEach(p => panel.appendChild(p));
-    header.innerHTML = '<span>Chord pad</span>';
-    linkFloat({
-      panel, handle: header, key: 'patchwork-float-pads', section: 'chord-pad',
-      defaults: () => ({ left: 24, top: 16, width: Math.min(900, window.innerWidth - 48) }),
-    });
-  }
-  // Keyboard: the panel as it is; its header row (label + analyzer) is the handle.
-  const kb = document.getElementById('keyboard-panel');
-  const kbHandle = kb && kb.querySelector('.kb-header-row');
-  if (kb && kbHandle) {
-    linkFloat({
-      panel: kb, handle: kbHandle, key: 'patchwork-float-keyboard', section: 'keyboard',
-      defaults: () => ({ left: 24, top: Math.max(16, window.innerHeight - 240), width: Math.min(1180, window.innerWidth - 48) }),
-    });
-  }
-  // Chord view: likewise, with its header (label + track picker) as handle.
+  // Pads and keyboard are the shell's panels (own instances of this page);
+  // the main instance floats only the chord view and the instruments.
+  if (PANEL) return;
+  // Chord view, with its header (label + track picker) as handle.
   const cv = document.getElementById('seq-chordview');
   const cvHandle = cv && cv.querySelector('.seq-chordview-header');
   if (cv && cvHandle) {
@@ -545,6 +529,94 @@ function linkSetLiveInstrument(id) {
   linkPostPadTarget();
   linkRenderInstruments();
   linkDecorateTracks();
+  linkBusPost({ type: 'padTarget', id: LINK.padTarget });   // the panels play it too
+}
+
+// ---------- panels <-> main instance ----------
+// Pad state the main instance needs to record a chord the way the pads
+// panel played it (key, template, voicing, octave, bass …).
+function linkPadStateSnapshot() {
+  return {
+    keys: Object.assign({}, state.keys), currentTemplate: state.currentTemplate,
+    voicing: state.voicing, octave: state.octave, sustain: state.sustain,
+    bassEnabled: state.bassEnabled, bassOctave: state.bassOctave, playStyle: state.playStyle,
+    velocity: state.velocity,
+  };
+}
+function linkApplyPadState(s) {
+  if (!s) return;
+  if (s.keys) Object.assign(state.keys, s.keys);
+  for (const k of ['currentTemplate', 'voicing', 'octave', 'sustain', 'bassEnabled', 'bassOctave', 'playStyle', 'velocity'])
+    if (s[k] !== undefined) state[k] = s[k];
+}
+
+if (linkBus) {
+  linkBus.onmessage = (e) => {
+    const m = e.data || {};
+    if (!m.type || m.from === (PANEL || 'main')) return;
+    switch (m.type) {
+      case 'padTarget':                       // live instrument changed elsewhere
+        if (m.id !== LINK.padTarget) {
+          LINK.padTarget = m.id || '';
+          if (!PANEL) { linkPostPadTarget(); linkRenderInstruments(); linkDecorateTracks(); linkPushModel(); }
+        }
+        break;
+      case 'padState':                        // pads panel changed key/voicing/…: main mirrors it
+        if (!PANEL) linkApplyPadState(m.state);
+        break;
+      case 'padOn':                           // a pad went down in the pads panel
+        if (!PANEL) {                         // main: record + highlight, silently
+          linkApplyPadState(m.state);
+          LINK._mirror = true;
+          try { playChord(m.padId, m.interval, m.quality, m.bassInterval); } finally { LINK._mirror = false; }
+        } else if (PANEL === 'keyboard' && Array.isArray(m.notes) && typeof _markPadKeys === 'function') {
+          _markPadKeys(m.notes, true);        // keyboard panel lights the chord's keys
+        }
+        break;
+      case 'padOff':
+        if (!PANEL) {
+          LINK._mirror = true;
+          try { releaseChord(m.padId); } finally { LINK._mirror = false; }
+        } else if (PANEL === 'keyboard' && Array.isArray(m.notes) && typeof _markPadKeys === 'function') {
+          _markPadKeys(m.notes, false);
+        }
+        break;
+      case 'kbOn':  if (!PANEL) linkMirrorNote(m.midi, true);  break;   // keyboard panel key: main records + analyses
+      case 'kbOff': if (!PANEL) linkMirrorNote(m.midi, false); break;
+      case 'ping':  if (PANEL) linkBusPost({ type: 'pong', info: PANEL + ' active=' + LINK.active + ' target=' + LINK.padTarget + ' size=' + window.innerWidth + 'x' + window.innerHeight }); break;
+      case 'devEval':                         // dev: run code inside a named panel, answer via pong
+        if (PANEL && m.panel === PANEL) { let out; try { out = String(eval(m.code)); } catch (err) { out = 'error: ' + err; } linkBusPost({ type: 'pong', info: PANEL + ' eval: ' + out }); }
+        break;
+      case 'pong':  if (!PANEL) linkSend({ cmd: 'ui_log', msg: 'pong ' + m.info }); break;   // dev: panels report in
+      default: break;
+    }
+  };
+}
+
+// In the panels, report what's played to the main instance (unless we are
+// ourselves mirroring something that came from elsewhere).
+if (PANEL === 'pads') {
+  const _play = playChord, _release = releaseChord;
+  playChord = function (padId, interval, quality, bassInterval) {
+    const r = _play(padId, interval, quality, bassInterval);
+    const chord = state.activeChords.get(padId);
+    if (chord) linkBusPost({ type: 'padOn', padId, interval, quality, bassInterval, notes: chord.kbHighlight || chord.notes, state: linkPadStateSnapshot() });
+    else linkBusPost({ type: 'padOff', padId });   // sustain toggled it off
+    return r;
+  };
+  releaseChord = function (padId) {
+    const chord = state.activeChords.get(padId);
+    const r = _release(padId);
+    if (chord && !state.activeChords.has(padId)) linkBusPost({ type: 'padOff', padId, notes: chord.kbHighlight || chord.notes });
+    return r;
+  };
+  const _prefs = uiPrefsSave;
+  uiPrefsSave = function () { _prefs(); linkBusPost({ type: 'padState', state: linkPadStateSnapshot() }); };
+}
+if (PANEL === 'keyboard') {
+  const _on = kbNoteOn, _off = kbNoteOff;
+  kbNoteOn  = function (midi, sendMidi) { const r = _on(midi, sendMidi);  if (!LINK._mirror) linkBusPost({ type: 'kbOn',  midi }); return r; };
+  kbNoteOff = function (midi, sendMidi) { const r = _off(midi, sendMidi); if (!LINK._mirror) linkBusPost({ type: 'kbOff', midi }); return r; };
 }
 
 function linkAssignInstrument(track, id) {
