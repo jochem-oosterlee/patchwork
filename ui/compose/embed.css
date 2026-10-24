@@ -1,8 +1,9 @@
 /* Embed mode: the compose view shown inside Patchwork's shell (iframe).
-   Patchwork provides the window chrome, menus and status bar, so the page
-   drops its own card, wordmark and project buttons and lets the shell's
-   background show through. Loaded after chord-pad.css; only applies when
-   the document was opened with ?embed=1 (html.embed). */
+   The shell provides the window chrome, menus, section toggles, the pad
+   instrument picker and the status bar, so this page drops its own card,
+   header and project buttons and lets the shell's background show through.
+   Loaded after chord-pad.css; only applies when the document was opened
+   with ?embed=1 (html.embed). */
 
 html.embed, html.embed body { background: transparent; background-image: none; }
 html.embed body { padding: 0; display: block; min-height: 0; }
@@ -14,21 +15,22 @@ html.embed .app {
   box-shadow: none;
 }
 
-/* compact header, pinned to the top of the frame: the pad-instrument picker
-   on the left, the section toggles on the right. The floating mini-toolbar
-   is redundant once the header never scrolls away. */
-html.embed .header {
-  position: sticky; top: 0; z-index: 900;
-  padding: 6px 12px 6px 16px;
-  background: var(--panel);
-  border-bottom-color: var(--panel-edge);
-}
-html.embed .brand,
-html.embed .header-project-btn,
-html.embed .header-sep,
+/* the shell's title bar carries the section toggles (driven over postMessage) */
+html.embed .header,
 html.embed .section-mini-toolbar,
-html.embed #midi-led { display: none !important; }
-html.embed .header-section-toggle [data-lucide] { width: 16px; height: 16px; }
+html.embed #link-badge { display: none !important; }
+
+/* the settings popover used to hang under the gear in our header; now it
+   opens top-right of the frame, under the shell's gear */
+html.embed #settings-panel { top: 8px !important; right: 8px !important; }
+
+/* form controls read like the shell's */
+html.embed select {
+  background: rgba(0,0,0,0.4);
+  border-color: rgba(255,255,255,0.18);
+  min-width: 0;
+}
+html.embed select:hover { border-color: rgba(255,255,255,0.35); }
 
 /* same thin scrollbars as the shell */
 html.embed * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
@@ -37,14 +39,3 @@ html.embed ::-webkit-scrollbar-track   { background: transparent; }
 html.embed ::-webkit-scrollbar-thumb   { background: rgba(255,255,255,0.18); border-radius: 3px; }
 html.embed ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
 html.embed ::-webkit-scrollbar-corner  { background: transparent; }
-
-/* the link badge sits in the header here and only offers the pad instrument */
-html.embed #link-badge {
-  position: static !important;
-  padding: 0 !important; border: 0 !important; background: transparent !important;
-  margin-right: auto;
-}
-html.embed #link-badge .link-label {
-  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--text-dim);
-}

@@ -868,6 +868,17 @@ private:
             return;
         }
         else if (cmd == "transport_stop") { seq.stop(); return; }
+        else if (cmd == "compose_action")
+        {
+            // Relay to the shell, which forwards it into the compose frame
+            // (toggleSection / setPadTarget / undo / redo / scrollTo).
+            juce::DynamicObject::Ptr o = new juce::DynamicObject();
+            o->setProperty ("event",  "compose_action");
+            o->setProperty ("action", v.getProperty ("action", "").toString());
+            o->setProperty ("arg",    v.getProperty ("arg", juce::var()));
+            ws.broadcast (juce::var (o.get()));
+            return;
+        }
         else if (cmd == "show_view")
         {
             // Ask the shell to switch view (rack / compose) — relayed to every

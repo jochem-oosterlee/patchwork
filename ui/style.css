@@ -74,6 +74,31 @@ main#view-rack.active { overflow: auto; }
 .view-switch button:hover { color: var(--text); background: rgba(255,255,255,0.04); border: 0; }
 .view-switch button.active { color: #fff; background: rgba(255,255,255,0.09); }
 
+/* compose tools in the title bar (Compose view only) */
+.compose-tools { display: none; align-items: center; gap: 2px; margin-right: 6px; }
+body.view-compose .compose-tools { display: inline-flex; }
+.ctool {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 26px; padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.30);
+}
+.ctool:hover { color: rgba(255,255,255,0.65); border-color: rgba(255,255,255,0.10); background: transparent; }
+.ctool.active { color: var(--accent); border-color: rgba(255,170,51,0.30); }
+.ctool .lucide { width: 16px; height: 16px; stroke-width: 1.75; }
+.pads-target-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-right: 6px;
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim);
+}
+.pads-target-wrap select {
+  min-width: 0; max-width: 170px;
+  height: 22px; padding: 0 6px;
+  font-size: 11px; letter-spacing: 0.02em;
+}
+
 /* engine transport in the status bar */
 .transport { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px; }
 .tr-btn {
@@ -287,8 +312,9 @@ header h1 {
   text-transform: lowercase; font-weight: 500;
   color: var(--text);
 }
-.app-logo { color: var(--accent); display: inline-flex; }
+.app-logo { color: var(--accent); display: inline-flex; flex-shrink: 0; }
 .app-logo.lucide { width: 18px; height: 18px; stroke-width: 1.8; }
+header h1 { white-space: nowrap; }
 
 /* splash */
 .splash {

@@ -65,10 +65,24 @@ Eén WebView: `ui/index.html` is de schil (titelbalk met menu's + view-switcher
 Rack/Compose, statusbalk met engine-transport play/stop/positie/loop/metronoom).
 De compose-view is een iframe naar de lokale compose-server
 (`state.composeUrl`, poort 7683) met `?embed=1`: `ui/compose/embed.css` haalt
-de eigen kaart, wordmark en projectknoppen weg en laat de achtergrond van de
+de eigen kaart, kop en projectknoppen weg en laat de achtergrond van de
 schil doorschijnen. De native TitleBar heeft geen tabs meer, alleen status +
 vensterknoppen. `resize_to_content` wordt niet meer gestuurd; het venster houdt
 de grootte die de gebruiker kiest, de views scrollen intern.
+
+Schil ↔ compose-frame (cross-origin) praten via `postMessage`:
+- schil → frame `{type:'patchwork', action, arg}`: `toggleSection`, `setPadTarget`,
+  `undo`, `redo`, `scrollTo`, `query`.
+- frame → schil `{type:'compose', event}`: `ready`, `sections {active}`,
+  `padTarget {id}`, `switchView {view}` (Ctrl+1/2 met focus in het frame).
+De compose-toggles en de pads-instrumentkeuze staan in de titelbalk van de schil
+(`#compose-tools`, alleen in Compose-view); undo/redo in de titelbalk gaan in
+Compose-view naar het nummer, in Rack-view naar de rack. Engine-relay voor
+tests/controllers: `show_view {view}` en `compose_action {action, arg}`.
+
+Nog dubbel: compose heeft in het Tracks-paneel een eigen transportrij (incl.
+tempo, maatsoort, rec, loop-navigatie) naast het engine-transport in de
+statusbalk. Samenvoegen is een volgende stap.
 
 Opruimpunten voor de compose-fork (alleen laptopgebruik, besloten 2026-10-24):
 touch-glide en touch-handlers, mobiele media queries, PWA-manifest + sw.js

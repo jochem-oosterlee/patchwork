@@ -31,6 +31,21 @@
         <button data-view="compose">Compose</button>
       </nav>
       <div class="drag-spacer"></div>
+      <!-- Compose view tools: pad instrument + section toggles, driven in the
+           compose frame over postMessage. Shown only in the Compose view. -->
+      <div id="compose-tools" class="compose-tools no-drag">
+        <label class="pads-target-wrap" title="instrument for the pads and the keyboard">
+          <span>pads</span>
+          <select id="pads-target"><option value="">— rack routing —</option></select>
+        </label>
+        <span class="titlebar-sep"></span>
+        <button class="ctool" data-section="chord-pad" title="Chord pad"><i data-lucide="layout-grid"></i></button>
+        <button class="ctool" data-section="keyboard"  title="Keyboard"><i data-lucide="keyboard-music"></i></button>
+        <button class="ctool" data-section="sequencer" title="Tracks"><i data-lucide="panel-top-bottom-dashed"></i></button>
+        <button class="ctool" data-section="pianoroll" title="Piano roll"><i data-lucide="square-chart-gantt"></i></button>
+        <button class="ctool" data-section="chordview" title="Chord view"><i data-lucide="captions"></i></button>
+        <button class="ctool" data-section="settings"  title="Compose settings"><i data-lucide="settings"></i></button>
+      </div>
       <!-- Window controls (min/max/close) live in the native title bar now. -->
     </header>
 

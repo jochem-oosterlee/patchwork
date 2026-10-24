@@ -229,9 +229,66 @@ function linkPrecountThenPlay(startBeat) {
   tick();
 }
 
-// ---------- badge: link status + pad instrument ----------
+// ---------- shell bridge (embedded in Patchwork's page) ----------
+// The shell owns the chrome; this frame answers to it over postMessage.
+
+const EMBED = document.documentElement.classList.contains('embed');
+
+function linkPostToShell(msg) {
+  if (!EMBED || window.parent === window) return;
+  try { window.parent.postMessage(Object.assign({ type: 'compose' }, msg), '*'); } catch (_) {}
+}
+function linkSectionStates() {
+  const out = {};
+  document.querySelectorAll('.header-section-toggle[data-section]').forEach(b => {
+    out[b.dataset.section] = b.classList.contains('active');
+  });
+  return out;
+}
+function linkPostSections() { linkPostToShell({ event: 'sections', active: linkSectionStates() }); }
+function linkPostPadTarget() { linkPostToShell({ event: 'padTarget', id: LINK.padTarget }); }
+
+if (EMBED) {
+  window.addEventListener('message', (e) => {
+    const m = e.data;
+    if (!m || m.type !== 'patchwork') return;
+    switch (m.action) {
+      case 'toggleSection':
+        document.querySelector(`.header-section-toggle[data-section="${m.arg}"]`)?.click();
+        break;
+      case 'setPadTarget':
+        LINK.padTarget = m.arg || '';
+        try { localStorage.setItem('patchwork-link-pad-target', LINK.padTarget); } catch (_) {}
+        linkPushModel();
+        linkPostPadTarget();
+        break;
+      case 'undo': seqUndo(); break;
+      case 'redo': seqRedo(); break;
+      case 'scrollTo': window.scrollTo(0, +m.arg || 0); break;
+      case 'query': linkPostSections(); linkPostPadTarget(); break;
+      default: break;
+    }
+  });
+  // Mirror the section toggles' state to the shell whenever it changes.
+  const obs = new MutationObserver(linkPostSections);
+  document.querySelectorAll('.header-section-toggle[data-section]').forEach(b =>
+    obs.observe(b, { attributes: true, attributeFilter: ['class'] }));
+  // View switch shortcuts work with focus inside the frame too.
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === '1' || e.key === '2')) {
+      e.preventDefault();
+      linkPostToShell({ event: 'switchView', view: e.key === '1' ? 'rack' : 'compose' });
+    }
+  });
+  linkPostToShell({ event: 'ready' });
+  linkPostSections();
+  linkPostPadTarget();
+}
+
+// ---------- badge: link status + pad instrument (standalone only) ----------
 
 function linkRenderBadge() {
+  if (EMBED) { linkPostPadTarget(); return; }   // the shell shows the picker
   let el = document.getElementById('link-badge');
   if (!el) {
     el = document.createElement('div');
@@ -242,23 +299,15 @@ function linkRenderBadge() {
     el.innerHTML = '<span class="link-dot" style="width:7px;height:7px;border-radius:50%;background:#555"></span>'
       + '<span class="link-label">engine</span>'
       + '<select class="link-target" style="font:inherit;background:rgba(0,0,0,.4);color:var(--text,#e8e6df);border:1px solid var(--panel-edge,#25282e);border-radius:4px;padding:2px 4px;max-width:180px"></select>';
-    // Standalone: floating bottom-right. Embedded in Patchwork's shell: first
-    // thing in the (sticky) header, where the wordmark used to be.
-    const header = document.documentElement.classList.contains('embed') ? document.querySelector('.header') : null;
-    if (header) header.insertBefore(el, header.firstChild); else document.body.appendChild(el);
+    document.body.appendChild(el);
     el.querySelector('.link-target').addEventListener('change', (e) => {
       LINK.padTarget = e.target.value;
       try { localStorage.setItem('patchwork-link-pad-target', LINK.padTarget); } catch (_) {}
       linkPushModel();
     });
   }
-  const embedded = document.documentElement.classList.contains('embed');
   el.querySelector('.link-dot').style.background = LINK.active ? 'var(--accent,#ffaa33)' : '#555';
-  el.querySelector('.link-dot').style.display = embedded ? 'none' : '';
-  // Inside Patchwork's shell the engine is a given; the badge is just the
-  // pad-instrument picker.
-  el.querySelector('.link-label').textContent = embedded ? 'pads' : (LINK.active ? 'engine' : 'engine offline');
-  el.style.display = (embedded && !LINK.active) ? 'none' : '';
+  el.querySelector('.link-label').textContent = LINK.active ? 'engine' : 'engine offline';
   const sel = el.querySelector('.link-target');
   sel.style.display = LINK.active ? '' : 'none';
   const opts = ['<option value="">— rack routing —</option>']

@@ -366,12 +366,17 @@ function renderPatchsetBar(sets, idx) {
   setPrevBtn.disabled = currentSetIdx <= 0;
   setNextBtn.disabled = currentSetIdx >= currentSets.length - 1;
 }
+let rackCanUndo = false, rackCanRedo = false;
 function setUndoRedoState(canUndo, canRedo) {
+  rackCanUndo = canUndo; rackCanRedo = canRedo;
+  if (document.body.classList.contains('view-compose')) return;   // buttons belong to the song there
   undoBtn.disabled = !canUndo;
   redoBtn.disabled = !canRedo;
 }
-undoBtn.addEventListener('click', () => send({ cmd: 'undo' }));
-redoBtn.addEventListener('click', () => send({ cmd: 'redo' }));
+// In the Compose view undo/redo belong to the song; in the Rack view to the rack.
+const inComposeView = () => document.body.classList.contains('view-compose');
+undoBtn.addEventListener('click', () => inComposeView() ? postToCompose('undo') : send({ cmd: 'undo' }));
+redoBtn.addEventListener('click', () => inComposeView() ? postToCompose('redo') : send({ cmd: 'redo' }));
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey)) return;
   if (e.key === 'z' || e.key === 'Z') {
@@ -1085,6 +1090,7 @@ function connect() {
         currentLoadingIds = new Set(m.loadingIds || []);
         renderPresets(m.presets || [], !!m.bypass, m.currentPreset ?? -1, !!m.loading);
         renderPatchsetBar(m.sets || [], m.currentSet ?? 0);
+        renderPadsTarget(m.presets || []);
         if (setBrowserModal && !setBrowserModal.hidden) renderPatchsetBrowser();
         setUndoRedoState(!!m.canUndo, !!m.canRedo);
         applyTempoState(m);
@@ -1095,6 +1101,9 @@ function connect() {
         break;
       case 'show_view':
         if (!document.getElementById('view-switch').hidden) setView(m.view === 'compose' ? 'compose' : 'rack');
+        break;
+      case 'compose_action':
+        postToCompose(m.action, m.arg);
         break;
       case 'plugin_loaded':
         setPluginName(m.name);
@@ -1793,6 +1802,9 @@ function setView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
   document.querySelectorAll('#view-switch button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
   document.body.classList.toggle('view-compose', name === 'compose');
+  // The song's undo is always offered; the rack's follows the engine's state.
+  if (name === 'compose') { undoBtn.disabled = false; redoBtn.disabled = false; }
+  else setUndoRedoState(rackCanUndo, rackCanRedo);
   try { localStorage.setItem('patchwork-view', name); } catch (_) {}
 }
 document.querySelectorAll('#view-switch button').forEach(b => {
@@ -1823,6 +1835,47 @@ function applyComposeUrl(url) {
     try { want = localStorage.getItem('patchwork-view') || 'rack'; } catch (_) {}
     setView(want);
   }
+}
+
+/* compose frame bridge: the frame is cross-origin (its own local server), so
+   the title-bar tools talk to it over postMessage and it reports back. */
+const composeFrame = document.getElementById('compose-frame');
+const padsTargetSel = document.getElementById('pads-target');
+let padsTargetId = '';
+function postToCompose(action, arg) {
+  try { composeFrame.contentWindow.postMessage({ type: 'patchwork', action, arg }, '*'); } catch (_) {}
+}
+window.addEventListener('message', (e) => {
+  const m = e.data;
+  if (!m || m.type !== 'compose') return;
+  switch (m.event) {
+    case 'ready':
+      postToCompose('query');
+      break;
+    case 'sections':
+      document.querySelectorAll('#compose-tools .ctool').forEach(b => {
+        b.classList.toggle('active', !!(m.active && m.active[b.dataset.section]));
+      });
+      break;
+    case 'padTarget':
+      padsTargetId = m.id || '';
+      if ([...padsTargetSel.options].some(o => o.value === padsTargetId)) padsTargetSel.value = padsTargetId;
+      break;
+    case 'switchView':
+      setView(m.view === 'compose' ? 'compose' : 'rack');
+      break;
+  }
+});
+document.querySelectorAll('#compose-tools .ctool').forEach(b => {
+  b.addEventListener('mousedown', e => e.preventDefault());   // keep focus where it is
+  b.addEventListener('click', () => postToCompose('toggleSection', b.dataset.section));
+});
+padsTargetSel.addEventListener('change', () => postToCompose('setPadTarget', padsTargetSel.value));
+function renderPadsTarget(presets) {
+  const opts = ['<option value="">— rack routing —</option>']
+    .concat(presets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`));
+  padsTargetSel.innerHTML = opts.join('');
+  padsTargetSel.value = presets.some(p => p.id === padsTargetId) ? padsTargetId : '';
 }
 
 /* engine transport (status bar) */
