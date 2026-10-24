@@ -32,8 +32,11 @@ html.embed select {
 }
 html.embed select:hover { border-color: rgba(255,255,255,0.35); }
 
-/* same thin scrollbars as the shell */
+/* same thin scrollbars as the shell — including the frame's own (root)
+   scrollbar, which `*` doesn't reach */
+html.embed,
 html.embed * { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) transparent; }
+html.embed { color-scheme: dark; }
 html.embed ::-webkit-scrollbar         { width: 6px; height: 6px; }
 html.embed ::-webkit-scrollbar-track   { background: transparent; }
 html.embed ::-webkit-scrollbar-thumb   { background: rgba(255,255,255,0.18); border-radius: 3px; }
