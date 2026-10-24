@@ -170,9 +170,15 @@ voice-/Web-MIDI-wrappers zwijgen (de Rack speelt al) maar keyboard-highlight,
 analyzer en REC gewoon werken.
 
 Gevulde layout (embed): body/app zijn een kolom van minimaal de framehoogte;
-`.seq-pianoroll` krijgt `flex:1` en de body `height:auto` (min 320 px), dus
-met pads/keyboard dicht vult de piano roll tot de statusbalk; met alles open
-scrolt de pagina als voorheen. De resize-handle is in embed verborgen.
+`.seq-pianoroll` en zijn body krijgen `flex: 1 1 0` met `height: 0` (basis 0,
+anders groeit de body naar zijn 88 rijen en wordt de pagina langer), min
+320 px; header/tools/liniaal `flex-shrink: 0`. Met pads/keyboard dicht vult de
+piano roll tot de statusbalk en scrolt hij intern; met alles open scrolt de
+pagina als voorheen. Resize-handle en de sneltoets-hint (`.help`) zijn in
+embed verborgen. link.js centreert de piano roll opnieuw na layout
+(`linkRecenterPianoRoll`: init-flag wissen + `renderPianoRoll()` in een rAF).
+Dev: `compose_action eval <js>` logt het resultaat via `ui_log` in het
+engine-log (`scratchpad/evalrelay.py`).
 
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;

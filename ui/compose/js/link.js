@@ -79,6 +79,7 @@ function linkOnEvent(m) {
         seqImportProject(m.data);
         linkPushModel(true);
         linkPostPrefs();
+        if (EMBED) linkRecenterPianoRoll();
       }
       break;
     default: break;
@@ -220,6 +221,18 @@ function linkNoteOff(token) {
   linkSend({ cmd: 'note', on: false, note: token.midi, vel: 0, ch: 1, target: token.target });
 }
 
+// The piano roll centres itself once, using its height at that moment. In
+// the filled layout that height settles only after layout (and is 0 while
+// the panel is hidden), so re-centre once the frame has laid out.
+function linkRecenterPianoRoll() {
+  requestAnimationFrame(() => {
+    const body = document.getElementById('seq-pianoroll-body');
+    if (!body || body.clientHeight === 0 || typeof renderPianoRoll !== 'function') return;
+    delete body.dataset.initialized;
+    renderPianoRoll();
+  });
+}
+
 // ---------- controller mirroring ----------
 // A note played on a controller is already sounding through the Rack. Show
 // it on the keyboard, feed the analyzer and let REC capture it — but don't
@@ -281,6 +294,7 @@ if (EMBED) {
     switch (m.action) {
       case 'toggleSection':
         document.querySelector(`.header-section-toggle[data-section="${m.arg}"]`)?.click();
+        if (m.arg === 'pianoroll' && !document.body.classList.contains('hide-pianoroll')) linkRecenterPianoRoll();
         break;
       case 'setPadTarget':
         LINK.padTarget = m.arg || '';
@@ -294,6 +308,11 @@ if (EMBED) {
       case 'toggleRec':  document.getElementById('seq-rec-btn')?.click();  break;
       case 'nav':        document.getElementById('seq-nav-' + m.arg)?.click(); break;
       case 'click':      document.querySelector(m.arg)?.click(); break;   // dev/test helper
+      case 'eval': {                                                      // dev/test helper (local only)
+        let out; try { out = String(eval(m.arg)); } catch (err) { out = 'error: ' + err; }
+        linkSend({ cmd: 'ui_log', msg: 'eval → ' + out });
+        break;
+      }
       case 'setVisualLatency': {
         const v = Math.max(-50, Math.min(200, parseInt(m.arg, 10) || 0));
         SEQ.visualLatencyMs = v;
@@ -341,6 +360,7 @@ if (EMBED) {
   linkPostSections();
   linkPostPadTarget();
   linkPostPrefs();
+  linkRecenterPianoRoll();
 }
 
 // ---------- badge: link status + pad instrument (standalone only) ----------

@@ -21,9 +21,15 @@ html.embed .app {
    shown the page scrolls as before. The drag handle is pointless then. */
 html.embed body { min-height: 100vh; display: flex; flex-direction: column; }
 html.embed .app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-html.embed .seq-pianoroll { flex: 1; min-height: 0; }
-html.embed .seq-pianoroll-body { flex: 1; height: auto !important; max-height: none; min-height: 320px; }
+html.embed .seq-pianoroll { flex: 1 1 0; min-height: 0; }
+/* flex-basis 0 + height 0: the body's size comes from the room it is given,
+   never from its 88 rows of content (which would just make the page taller) */
+html.embed .seq-pianoroll-body { flex: 1 1 0; height: 0 !important; max-height: none; min-height: 320px; }
+html.embed .seq-pianoroll > :not(.seq-pianoroll-body) { flex-shrink: 0; }   /* header, tools, ruler keep their height */
 html.embed .seq-pianoroll-resize { display: none; }
+/* the shortcut hints used to sit under the page; in the filled layout they
+   land on the piano roll, and the shortcuts are in the tooltips anyway */
+html.embed .help { display: none !important; }
 
 /* the shell's title bar carries the section toggles (driven over postMessage) */
 html.embed .header,

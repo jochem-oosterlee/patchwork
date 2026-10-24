@@ -928,6 +928,12 @@ private:
             ws.broadcast (juce::var (o.get()));
             return;
         }
+        else if (cmd == "ui_log")
+        {
+            // A UI's own message into the shared log (debugging the frames).
+            logToUi ("[ui] " + v.getProperty ("msg", "").toString());
+            return;
+        }
         else if (cmd == "show_view")
         {
             // Ask the shell to switch view (rack / compose) — relayed to every
