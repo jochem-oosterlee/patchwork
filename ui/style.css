@@ -312,6 +312,8 @@ header h1 {
 .app-logo { color: var(--accent); display: inline-flex; flex-shrink: 0; }
 .app-logo.lucide { width: 18px; height: 18px; stroke-width: 1.8; }
 header h1 { white-space: nowrap; }
+.project-name { color: var(--text-dim); font-weight: 400; letter-spacing: 0.04em; text-transform: none; }
+.project-name:not(:empty)::before { content: '·'; margin: 0 8px; color: var(--text-faint); }
 
 /* splash */
 .splash {

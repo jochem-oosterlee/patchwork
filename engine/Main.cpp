@@ -439,9 +439,17 @@ public:
     // /tempo) with the compose view's song. Both live on disk here: settings.json
     // and compose.json (the compose view autosaves to us), so saving is a plain
     // read of the two.
-    void startProjectSave()
+    // Save to the current project file, or ask for one if there is none yet.
+    void startProjectSave (bool forceChooser = false)
     {
-        projectChooser = std::make_unique<juce::FileChooser> ("Save project", juce::File(), "*.pwproj");
+        juce::File current (settings.projectPath);
+        if (! forceChooser && settings.projectPath.isNotEmpty() && current.getParentDirectory().isDirectory())
+        {
+            writeProject (current);
+            return;
+        }
+        auto startAt = current.existsAsFile() ? current : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+        projectChooser = std::make_unique<juce::FileChooser> ("Save project", startAt, "*.pwproj");
         projectChooser->launchAsync (juce::FileBrowserComponent::saveMode
                                      | juce::FileBrowserComponent::canSelectFiles
                                      | juce::FileBrowserComponent::warnAboutOverwriting,
@@ -450,22 +458,52 @@ public:
                 auto f = fc.getResult();
                 if (f == juce::File()) return;
                 if (f.getFileExtension().isEmpty()) f = f.withFileExtension ("pwproj");
-                settings.save();                    // flush current rack/routing to settings.json
-                juce::DynamicObject::Ptr proj = new juce::DynamicObject();
-                proj->setProperty ("format",    "patchwork-project");
-                proj->setProperty ("version",   2);
-                proj->setProperty ("patchwork", juce::JSON::parse (Settings::file()));
-                const auto cf = Settings::composeFile();
-                proj->setProperty ("chordpad",  cf.existsAsFile() ? juce::JSON::parse (cf) : juce::var());
-                const bool ok = f.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
-                logToUi (ok ? ("project saved: " + f.getFullPathName())
-                            : ("project save FAILED: " + f.getFullPathName()));
+                writeProject (f);
             });
+    }
+
+    void writeProject (const juce::File& f)
+    {
+        settings.projectPath = f.getFullPathName();
+        settings.save();                    // flush current rack/routing (+ the project path) to settings.json
+        juce::DynamicObject::Ptr proj = new juce::DynamicObject();
+        proj->setProperty ("format",    "patchwork-project");
+        proj->setProperty ("version",   2);
+        proj->setProperty ("patchwork", juce::JSON::parse (Settings::file()));
+        const auto cf = Settings::composeFile();
+        proj->setProperty ("chordpad",  cf.existsAsFile() ? juce::JSON::parse (cf) : juce::var());
+        const bool ok = f.replaceWithText (juce::JSON::toString (juce::var (proj.get()), true));
+        logToUi (ok ? ("project saved: " + f.getFullPathName())
+                    : ("project save FAILED: " + f.getFullPathName()));
+        broadcastState();
+    }
+
+    // New song: the compose half starts empty, the rack stays as it is, and
+    // the next Save asks for a file.
+    void newProject()
+    {
+        seq.stop();
+        settings.projectPath.clear();
+        settings.save();
+        Settings::composeFile().deleteFile();
+        juce::DynamicObject::Ptr empty = new juce::DynamicObject();
+        empty->setProperty ("tracksList", juce::Array<juce::var>());
+        empty->setProperty ("loopStart", 0.0);
+        empty->setProperty ("loopEnd",   4.0);
+        empty->setProperty ("loop",      false);
+        juce::DynamicObject::Ptr msg = new juce::DynamicObject();
+        msg->setProperty ("event", "load_project");
+        msg->setProperty ("data",  juce::var (empty.get()));
+        ws.broadcast (juce::var (msg.get()));
+        logToUi ("new song");
+        broadcastState();
     }
 
     void startProjectOpen()
     {
-        projectChooser = std::make_unique<juce::FileChooser> ("Open project", juce::File(), "*.pwproj;*.json");
+        juce::File current (settings.projectPath);
+        auto startAt = current.existsAsFile() ? current.getParentDirectory() : juce::File::getSpecialLocation (juce::File::userDocumentsDirectory);
+        projectChooser = std::make_unique<juce::FileChooser> ("Open project", startAt, "*.pwproj;*.json");
         projectChooser->launchAsync (juce::FileBrowserComponent::openMode
                                      | juce::FileBrowserComponent::canSelectFiles,
             [this] (const juce::FileChooser& fc)
@@ -483,6 +521,8 @@ public:
                     settings.load();
                     restoreFromSettings();
                 }
+                settings.projectPath = f.getFullPathName();   // this file is now what Save writes to
+                settings.save();
                 auto chordVar = v.getProperty ("chordpad", juce::var());
                 if (! chordVar.isVoid())
                     Settings::composeFile().replaceWithText (juce::JSON::toString (chordVar, true));
@@ -922,8 +962,10 @@ private:
             pendingClick.store ((bool) v.getProperty ("accent", false) ? 2 : 1);
             return;
         }
-        else if (cmd == "project_save") { juce::MessageManager::callAsync ([this] { startProjectSave(); }); return; }
-        else if (cmd == "project_open") { juce::MessageManager::callAsync ([this] { startProjectOpen(); }); return; }
+        else if (cmd == "project_save")    { juce::MessageManager::callAsync ([this] { startProjectSave (false); }); return; }
+        else if (cmd == "project_save_as") { juce::MessageManager::callAsync ([this] { startProjectSave (true);  }); return; }
+        else if (cmd == "project_open")    { juce::MessageManager::callAsync ([this] { startProjectOpen(); });      return; }
+        else if (cmd == "project_new")     { juce::MessageManager::callAsync ([this] { newProject(); });            return; }
 
         if (cmd == "list_midi_inputs")
         {
@@ -1856,6 +1898,9 @@ private:
         obj->setProperty ("tsDenominator",   settings.tsDenominator);
         obj->setProperty ("clockActive",     clockActive);
         obj->setProperty ("effectiveBpm",    plugin.playHead.bpm.load());
+        obj->setProperty ("projectPath", settings.projectPath);
+        obj->setProperty ("projectName", settings.projectPath.isNotEmpty()
+            ? juce::File (settings.projectPath).getFileNameWithoutExtension() : juce::String());
         // Where the shell finds the compose view ("" = not being served).
         obj->setProperty ("composeUrl", chordPad.isListening()
             ? "http://127.0.0.1:" + juce::String (kChordPadPort) + "/chord-pad.html" : juce::String());

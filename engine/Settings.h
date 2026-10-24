@@ -98,6 +98,7 @@ public:
     juce::String           kbOut;
     juce::String           pluginPath;
     juce::String           chordPadDir;      // optional override for the compose web-app folder to serve
+    juce::String           projectPath;      // the .pwproj Save writes to ("" = untitled)
     std::vector<Patchset>  sets;
     int                    currentSet = 0;
 
@@ -193,6 +194,7 @@ public:
         kbOut      = v.getProperty ("kbOut",      "").toString();
         pluginPath = v.getProperty ("pluginPath", "").toString();
         chordPadDir = v.getProperty ("chordPadDir", "").toString();
+        projectPath = v.getProperty ("projectPath", "").toString();
         sets.clear();
         currentSet = (int) v.getProperty ("currentSet", 0);
 
@@ -291,6 +293,7 @@ public:
         obj->setProperty ("kbOut",      kbOut);
         obj->setProperty ("pluginPath", pluginPath);
         obj->setProperty ("chordPadDir", chordPadDir);
+        obj->setProperty ("projectPath", projectPath);
         obj->setProperty ("currentSet", currentSet);
 
         juce::Array<juce::var> setArr;

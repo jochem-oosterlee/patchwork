@@ -2610,7 +2610,9 @@ initTouchGlide();
 initMidiLaneResize();
 initSeqLanePan();
 initSeqPinchZoom();
-seqLoad();
+// Embedded in Patchwork the engine owns the song (compose.json comes in over
+// the link as load_project); only standalone restores it from localStorage.
+if (!document.documentElement.classList.contains('embed')) seqLoad();
 uiPrefsLoad();
 // Apply restored template + key. setActiveTab also calls rebuildBoard;
 // for the default template we still need to refresh pads with the loaded

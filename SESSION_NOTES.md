@@ -109,6 +109,17 @@ met chips onder de presetnaam (power = bypass, naam = editor, × = weg, "+ fx"
 = kiezer met zoekveld). Nog niet: herordenen van effecten, geluidstest (geen
 plugins op deze laptop; datapad getest met `scratchpad/fxtest.py`).
 
+## Eén project (fase 4, 2026-10-24)
+
+De engine is de enige bron voor het nummer: embedded laadt compose niets
+meer uit localStorage (`seqLoad` overgeslagen, `seqSave` schrijft alleen
+ui-prefs) en wacht op `load_project`. `settings.projectPath` is het huidige
+`.pwproj`; File-menu: New song (`project_new`: compose.json weg, rack blijft),
+Open…, Save (`project_save`, Ctrl+S ook vanuit het frame), Save as…
+(`project_save_as`). Projectnaam in de titelbalk en de venstertitel. Undo
+blijft per view (nummer in het frame, rack in de engine), gerouteerd door de
+schil — bewust geen gedeelde stack.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).

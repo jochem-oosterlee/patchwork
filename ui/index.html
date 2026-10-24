@@ -17,7 +17,7 @@
   <div class="app">
     <header class="titlebar">
       <i data-lucide="cable" class="app-logo"></i>
-      <h1>patchwork</h1>
+      <h1>patchwork<span id="project-name" class="project-name"></span></h1>
       <nav class="menu-bar no-drag">
         <button class="menu-trigger" data-menu="file">File</button>
         <button class="menu-trigger" data-menu="view">View</button>
@@ -50,8 +50,11 @@
     </header>
 
     <div id="menu-file" class="dropdown-menu" hidden>
-      <button class="menu-item" data-action="save-project"><span class="menu-icon"><i data-lucide="save"></i></span><span class="menu-label">Save project…</span></button>
+      <button class="menu-item" data-action="new-project"><span class="menu-icon"><i data-lucide="file"></i></span><span class="menu-label">New song</span></button>
       <button class="menu-item" data-action="open-project"><span class="menu-icon"><i data-lucide="folder-open"></i></span><span class="menu-label">Open project…</span></button>
+      <div class="menu-sep"></div>
+      <button class="menu-item" data-action="save-project"><span class="menu-icon"><i data-lucide="save"></i></span><span class="menu-label">Save project</span><span class="menu-state">Ctrl+S</span></button>
+      <button class="menu-item" data-action="save-project-as"><span class="menu-icon"><i data-lucide="save-all"></i></span><span class="menu-label">Save project as…</span></button>
       <div class="menu-sep"></div>
       <button class="menu-item" data-action="new-from-library"><span class="menu-icon"><i data-lucide="library"></i></span><span class="menu-label">New preset from library…</span></button>
       <button class="menu-item" data-action="new-from-file"><span class="menu-icon"><i data-lucide="file-plus"></i></span><span class="menu-label">New preset from file…</span></button>

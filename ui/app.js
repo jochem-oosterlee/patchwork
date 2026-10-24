@@ -1181,6 +1181,8 @@ function connect() {
         setUndoRedoState(!!m.canUndo, !!m.canRedo);
         applyTempoState(m);
         applyComposeUrl(m.composeUrl || '');
+        document.getElementById('project-name').textContent = m.projectName || '';
+        document.title = m.projectName ? m.projectName + ' — Patchwork' : 'Patchwork';
         break;
       case 'transport':
         applyTransport(m);
@@ -1722,8 +1724,10 @@ document.querySelectorAll('.dropdown-menu .menu-item').forEach(item => {
     else if (action === 'midi-settings') openModal(midiModal);
     else if (action === 'new-from-library') { pickingMode = 'new-preset'; openLibrary(); }
     else if (action === 'new-from-file') { send({ cmd: 'open_plugin_picker' }); }
-    else if (action === 'save-project') { send({ cmd: 'project_save' }); }
-    else if (action === 'open-project') { send({ cmd: 'project_open' }); }
+    else if (action === 'save-project')    { send({ cmd: 'project_save' }); }
+    else if (action === 'save-project-as') { send({ cmd: 'project_save_as' }); }
+    else if (action === 'open-project')    { send({ cmd: 'project_open' }); }
+    else if (action === 'new-project')     { if (confirm('Start a new song? The current song stays in its project file only if you saved it.')) send({ cmd: 'project_new' }); }
     closeAllMenus();
   });
 });
@@ -1907,6 +1911,10 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     setView(e.key === '1' ? 'rack' : 'compose');
   }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault();
+    send({ cmd: e.shiftKey ? 'project_save_as' : 'project_save' });
+  }
 });
 let composeUrlApplied = '';
 function applyComposeUrl(url) {
@@ -1953,6 +1961,9 @@ window.addEventListener('message', (e) => {
       break;
     case 'switchView':
       setView(m.view === 'compose' ? 'compose' : 'rack');
+      break;
+    case 'save':
+      send({ cmd: m.as ? 'project_save_as' : 'project_save' });
       break;
   }
 });

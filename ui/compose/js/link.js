@@ -291,6 +291,10 @@ if (EMBED) {
       e.preventDefault();
       linkPostToShell({ event: 'switchView', view: e.key === '1' ? 'rack' : 'compose' });
     }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault();
+      linkPostToShell({ event: 'save', as: e.shiftKey });
+    }
   });
   linkPostToShell({ event: 'ready' });
   linkPostSections();
@@ -362,7 +366,8 @@ seqJumpToBeat = function (beat) {
 };
 
 seqSave = function () {
-  _linkOrig.seqSave();
+  if (EMBED) uiPrefsSave();          // the song itself lives in the engine, not in localStorage
+  else _linkOrig.seqSave();
   if (LINK.active) { linkPushModel(); linkScheduleSave(); }
 };
 
