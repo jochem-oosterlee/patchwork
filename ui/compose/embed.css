@@ -32,6 +32,19 @@ html.embed .seq-tempo-wrap,
 html.embed .seq-clock-sync,
 html.embed #seq-rec-btn + .seq-tool-sep + .seq-nav-group + .seq-tool-sep { display: none !important; }
 
+/* Web Audio has no role here: pads, keyboard and tracks all play Patchwork
+   instruments. Hide chord-pad's own voice controls — the GM instrument
+   picker, synth knobs and audio settings — and the keyboard voice settings. */
+html.embed .cp-modal-inst-row,
+html.embed #cp-modal-waveform-row,
+html.embed .cp-modal-sound-row,
+html.embed #cp-modal-reset-row,
+html.embed .control:has(#audio-toggle),
+html.embed .control:has(#master-vol-knob),
+html.embed .control:has(#vol-balance-toggle),
+html.embed .track-fx-out-btn[data-out="instrument"],
+html.embed #kb-settings-btn { display: none !important; }
+
 /* the settings popover used to hang under the gear in our header; now it
    opens top-right of the frame, under the shell's gear */
 html.embed #settings-panel { top: 8px !important; right: 8px !important; }

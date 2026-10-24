@@ -335,10 +335,20 @@ function linkRenderBadge() {
 // ---------- wrappers around chord-pad's own functions ----------
 
 const _linkOrig = {
+  makeTrack,
   seqPlay, seqStop, seqJumpToBeat, seqSave, seqTick, seqAnimatePlayhead,
   seqLoopBaseChangedResync, seqResyncTrack, seqResyncTrackThrottled, seqResyncAllThrottled,
   startAudioNote, stopAudioNote, startBassNote,
   metroRun, metroRunSynced, metroHalt, applyTempoChange, recCurrentBeat,
+};
+
+// Embedded there is no in-app voice: a track either plays a Patchwork
+// instrument ('engine') or external MIDI. Old projects' 'instrument' tracks
+// become engine tracks on the pad instrument.
+makeTrack = function (opts) {
+  const t = _linkOrig.makeTrack(opts);
+  if (EMBED && t.output === 'instrument') t.output = 'engine';
+  return t;
 };
 
 seqPlay = function (leadSec) {

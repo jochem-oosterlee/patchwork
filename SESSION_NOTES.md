@@ -120,6 +120,16 @@ Open…, Save (`project_save`, Ctrl+S ook vanuit het frame), Save as…
 blijft per view (nummer in het frame, rack in de engine), gerouteerd door de
 schil — bewust geen gedeelde stack.
 
+## Web Audio uit beeld (fase 5a, 2026-10-24)
+
+Embedded verbergt `embed.css` chord-pad's eigen stemcontrols (GM-instrument-
+kiezer, waveform, synth-knoppen en reset in de pad-modal; Audio/Volume/
+Vol-balans in de instellingen; de "Instrument"-uitvoerknop in de track-modal;
+de keyboard-stem-instellingen). `makeTrack` zet in embed `output:'instrument'`
+om naar `'engine'`. De Web Audio-code zelf staat er nog (audio.js, SF2) maar
+wordt in embed niet gebruikt; verwijderen is opruimwerk voor later, net als
+touch-handlers, mobiele media queries en PWA-manifest.
+
 Bekende beperkingen fase 1: één live-target voor alle pads/keyboard; MIDI-out
 tracks stil in link-modus; `state` bevat alleen presets van de huidige set;
 WebSocketBridge logt elk raw bericht (ruis bij 30 Hz / autosave).
