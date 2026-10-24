@@ -3,3 +3,4 @@ build/
 *.user
 CMakeUserPresets.json
 tools/node_modules/
+build-old/
