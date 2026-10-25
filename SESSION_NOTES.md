@@ -299,6 +299,17 @@ Rebuild-cyclus tijdens dev: `Get-Process Patchwork | Stop-Process -Force; cmake 
 Settings staan in `%APPDATA%\MidiHost\settings.json`, het nummer in
 `compose.json` ernaast.
 
+## Venster (2026-10-25)
+
+Geen native titelbalk meer: de webkop is de caption. Min/max/sluiten rechts
+in de kop (`.win-controls` → `window_minimize/maximize/close`). Slepen: een
+druk op lege kopruimte stuurt `window_drag`; de engine doet `ReleaseCapture()`
++ `SendMessage(WM_NCLBUTTONDOWN, HTCAPTION)` zodat Windows zelf verplaatst
+(Aero Snap werkt). Twee snelle drukken = maximaliseren. Maximaliseren vult de
+`userArea` van de monitor (taakbalk zichtbaar) en herstelt daarna de oude
+bounds (`maximised`/`restoreBounds` in MainComponent). Resize-rand 6 px
+(`getBorderThickness` in MainWindow) + hoekgreep (`setResizable(true,true)`).
+
 ## Overzetten naar een andere machine
 
 Kopieer de hele map `build\MidiHost_artefacts\Release\`: `Patchwork.exe`,
