@@ -2555,7 +2555,10 @@ public:
     {
         setUsingNativeTitleBar (false);
         setTitleBarHeight (0);
-        setResizable (true, false);
+        // Borderless window: the resize edge is ours to draw. Make it wide
+        // enough to grab (the WebView sits right inside it) and add the
+        // corner grip, which is the easiest target.
+        setResizable (true, true);
         setContentOwned (new MainComponent(), true);
         centreWithSize (1000, 760);
         setVisible (true);
@@ -2565,6 +2568,9 @@ public:
     {
         juce::JUCEApplication::getInstance()->systemRequestedQuit();
     }
+
+    // The resize edge around the borderless window: 6 px instead of JUCE's 4.
+    juce::BorderSize<int> getBorderThickness() const override { return juce::BorderSize<int> (6); }
 };
 
 class MidiHostApp : public juce::JUCEApplication
