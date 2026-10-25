@@ -635,6 +635,19 @@ private:
 
     void timerCallback() override
     {
+        // Remember where the window is, a second after it stops moving.
+        if (auto* top = getTopLevelComponent())
+        {
+            const auto b = top->getBounds();
+            if (b != lastWindowBounds) { lastWindowBounds = b; windowSaveCountdown = 30; }
+            if (windowSaveCountdown > 0 && --windowSaveCountdown == 0)
+            {
+                settings.windowBounds    = maximised ? restoreBounds : b;
+                settings.windowMaximised = maximised;
+                settings.save();
+            }
+        }
+
         // Transport position for the UIs' playheads: every tick while playing,
         // plus one message when play/stop flips or the cursor moves while stopped.
         {
@@ -2427,6 +2440,30 @@ private:
     std::unique_ptr<juce::WebBrowserComponent>  browser;
     bool                 maximised = false;      // window_maximize toggle state
     juce::Rectangle<int> restoreBounds;
+    juce::Rectangle<int> lastWindowBounds;
+    int                  windowSaveCountdown = 0;
+
+public:
+    // Put the window back where it was last time, if that place still exists.
+    void restoreWindowBounds (juce::Component& top)
+    {
+        const auto saved = settings.windowBounds;
+        if (saved.isEmpty() || saved.getWidth() < 400 || saved.getHeight() < 300) return;
+        bool onScreen = false;
+        for (auto& d : juce::Desktop::getInstance().getDisplays().displays)
+            if (d.userArea.intersects (saved)) { onScreen = true; break; }
+        if (! onScreen) return;
+        top.setBounds (saved);
+        if (settings.windowMaximised)
+        {
+            restoreBounds = saved;
+            if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForPoint (saved.getCentre()))
+                top.setBounds (d->userArea);
+            maximised = true;
+        }
+        lastWindowBounds = top.getBounds();
+    }
+private:
 };
 
 class MainWindow : public juce::DocumentWindow
@@ -2443,8 +2480,10 @@ public:
         // enough to grab (the WebView sits right inside it) and add the
         // corner grip, which is the easiest target.
         setResizable (true, true);
-        setContentOwned (new MainComponent(), true);
+        auto* main = new MainComponent();
+        setContentOwned (main, true);
         centreWithSize (1000, 760);
+        main->restoreWindowBounds (*this);   // last session's place and size, if still on a screen
         setVisible (true);
     }
 

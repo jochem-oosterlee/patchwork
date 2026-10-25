@@ -1234,6 +1234,7 @@ function connect() {
         break;
       case 'compose_action':
         if (m.action === 'shellClick') { const el = document.querySelector(m.arg); if (el) el.click(); }   // dev/test helper
+        else if (m.action === 'shellEval') { let out; try { out = String(eval(m.arg)); } catch (err) { out = 'error: ' + err; } send({ cmd: 'ui_log', msg: 'shell eval -> ' + out }); }   // dev/test helper (local only)
         else postToCompose(m.action, m.arg);
         break;
       case 'plugin_loaded':
@@ -2069,10 +2070,14 @@ function shellFloat(id, defaults) {
     panel.style.left = Math.min(Math.max(8, r.left), maxL) + 'px';
     panel.style.top  = Math.min(Math.max(8, r.top),  maxT) + 'px';
   };
+  // Remember place, size and whether it's shown. A hidden panel has no
+  // rect, so its last known geometry is kept and only the flag changes.
+  let lastRect = null;
   const persist = () => {
     const r = panel.getBoundingClientRect();
-    if (r.width === 0) return;
-    try { localStorage.setItem(key, JSON.stringify({ left: r.left, top: r.top, width: r.width, height: r.height, visible: !panel.hidden })); } catch (_) {}
+    if (r.width > 0) lastRect = { left: r.left, top: r.top, width: r.width, height: r.height };
+    const g = lastRect || { left: saved.left, top: saved.top, width: saved.width, height: saved.height };
+    try { localStorage.setItem(key, JSON.stringify(Object.assign({}, g, { visible: !panel.hidden }))); } catch (_) {}
   };
   const d = defaults();
   panel.style.width  = (typeof saved.width  === 'number' ? saved.width  : d.width)  + 'px';

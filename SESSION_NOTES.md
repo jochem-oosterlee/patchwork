@@ -309,6 +309,11 @@ druk op lege kopruimte stuurt `window_drag`; de engine doet `ReleaseCapture()`
 `userArea` van de monitor (taakbalk zichtbaar) en herstelt daarna de oude
 bounds (`maximised`/`restoreBounds` in MainComponent). Resize-rand 6 px
 (`getBorderThickness` in MainWindow) + hoekgreep (`setResizable(true,true)`).
+Vensterpositie/-grootte + gemaximaliseerd worden een seconde na de laatste
+verandering in settings.json gezet (`windowBounds`, `windowMaximised`; timer
+in MainComponent) en bij start hersteld als het nog op een scherm valt
+(`restoreWindowBounds`). Schil-panelen onthouden plek, grootte én
+zichtbaarheid (ook bij verbergen) in localStorage.
 
 ## Overzetten naar een andere machine
 

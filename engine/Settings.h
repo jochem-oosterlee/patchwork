@@ -99,6 +99,8 @@ public:
     juce::String           pluginPath;
     juce::String           chordPadDir;      // optional override for the compose web-app folder to serve
     juce::String           projectPath;      // the .pwproj Save writes to ("" = untitled)
+    juce::Rectangle<int>   windowBounds;     // last window position/size (empty = none saved)
+    bool                   windowMaximised = false;
     std::vector<Patchset>  sets;
     int                    currentSet = 0;
 
@@ -195,6 +197,8 @@ public:
         pluginPath = v.getProperty ("pluginPath", "").toString();
         chordPadDir = v.getProperty ("chordPadDir", "").toString();
         projectPath = v.getProperty ("projectPath", "").toString();
+        windowBounds = juce::Rectangle<int>::fromString (v.getProperty ("windowBounds", "").toString());
+        windowMaximised = (bool) v.getProperty ("windowMaximised", false);
         sets.clear();
         currentSet = (int) v.getProperty ("currentSet", 0);
 
@@ -294,6 +298,8 @@ public:
         obj->setProperty ("pluginPath", pluginPath);
         obj->setProperty ("chordPadDir", chordPadDir);
         obj->setProperty ("projectPath", projectPath);
+        obj->setProperty ("windowBounds", windowBounds.toString());
+        obj->setProperty ("windowMaximised", windowMaximised);
         obj->setProperty ("currentSet", currentSet);
 
         juce::Array<juce::var> setArr;
