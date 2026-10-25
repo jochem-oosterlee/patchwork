@@ -102,147 +102,6 @@ static constexpr int kWsPort       = 7681;
 static constexpr int kHttpPort     = 7682;
 static constexpr int kChordPadPort = 7683;   // serves the chord-pad web app locally
 
-// Window caption / min-max-close buttons drawn as vector glyphs (no unicode
-// in source — em-dash etc. mangled the encoding here before).
-class WinButton : public juce::Button
-{
-public:
-    enum Glyph { Minimise, Maximise, Close };
-    explicit WinButton (Glyph g) : juce::Button ({}), glyph (g) {}
-    void paintButton (juce::Graphics& g, bool over, bool down) override
-    {
-        if (over || down)
-            g.fillAll (glyph == Close ? juce::Colour (0xffc0392b) : juce::Colour (0x24ffffff));
-        g.setColour (juce::Colour (0xffd8dde3));
-        auto c = getLocalBounds().getCentre().toFloat();
-        const float s = 4.5f;
-        if (glyph == Minimise)      g.drawLine (c.x - s, c.y, c.x + s, c.y, 1.3f);
-        else if (glyph == Maximise) g.drawRect (juce::Rectangle<float> (c.x - s, c.y - s, 2 * s, 2 * s), 1.2f);
-        else { g.drawLine (c.x - s, c.y - s, c.x + s, c.y + s, 1.3f); g.drawLine (c.x - s, c.y + s, c.x + s, c.y - s, 1.3f); }
-    }
-    Glyph glyph;
-};
-
-// Shared transport button in the title bar: play triangle when stopped, pause
-// bars (green) when the engine play-head is running. Drives chord-pad.
-class PlayButton : public juce::Button
-{
-public:
-    PlayButton() : juce::Button ({}) {}
-    bool playing = false;
-    void paintButton (juce::Graphics& g, bool over, bool down) override
-    {
-        if (over || down) g.fillAll (juce::Colour (0x20ffffff));
-        auto c = getLocalBounds().getCentre().toFloat();
-        g.setColour (playing ? juce::Colour (0xff3ddc84) : juce::Colour (0xffd8dde3));
-        if (playing)
-        {
-            g.fillRect (juce::Rectangle<float> (c.x - 4.5f, c.y - 5.0f, 3.0f, 10.0f));
-            g.fillRect (juce::Rectangle<float> (c.x + 1.5f, c.y - 5.0f, 3.0f, 10.0f));
-        }
-        else
-        {
-            juce::Path p; p.addTriangle (c.x - 4.0f, c.y - 5.5f, c.x - 4.0f, c.y + 5.5f, c.x + 5.5f, c.y);
-            g.fillPath (p);
-        }
-    }
-};
-
-// Custom in-style title bar for the borderless window: engine status and
-// minimise / maximise / close. Dragging the empty caption hands off to the
-// native move loop (WM_NCLBUTTONDOWN) so Windows drag + Aero Snap work; the
-// maximise button "maximises" to the monitor work area (respects the taskbar).
-class TitleBar : public juce::Component
-{
-public:
-    TitleBar()
-    {
-        setInterceptsMouseClicks (true, true);
-        for (auto* b : { &minBtn, &maxBtn, &closeBtn }) addAndMakeVisible (*b);
-        minBtn.onClick   = [this] { nativeMinimise(); };
-        maxBtn.onClick   = [this] { toggleMaximise(); };
-        closeBtn.onClick = [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); };
-    }
-
-    // Engine status shown right of centre (bar.beat + tempo).
-    void setStatus (juce::String text, bool playing)
-    {
-        if (text == statusText && playing == statusPlaying) return;
-        statusText = std::move (text); statusPlaying = playing;
-        repaint();
-    }
-
-    void paint (juce::Graphics& g) override
-    {
-        g.fillAll (juce::Colour (0xff121212));   // same neutral base as the web UI
-        g.setColour (juce::Colour (0x18ffffff));
-        g.fillRect (0, getHeight() - 1, getWidth(), 1);
-
-        // Engine status (bar.beat + tempo) with a play/stop dot, drawn just
-        // left of the window buttons.
-        if (statusText.isNotEmpty())
-        {
-            const int rightEdge = getWidth() - 3 * 46 - 12;   // before min/max/close
-            g.setColour (statusPlaying ? juce::Colour (0xff3ddc84) : juce::Colour (0x40ffffff));
-            g.fillEllipse ((float) rightEdge - 6, (float) getHeight() / 2.0f - 3.0f, 6.0f, 6.0f);
-            g.setColour (juce::Colour (0xff9aa0a8));
-            g.setFont (juce::Font (12.0f));
-            g.drawText (statusText, juce::Rectangle<int> (0, 0, rightEdge - 12, getHeight()),
-                        juce::Justification::centredRight);
-        }
-    }
-
-    void resized() override
-    {
-        auto r = getLocalBounds();
-        const int bw = 46;
-        closeBtn.setBounds (r.removeFromRight (bw));
-        maxBtn  .setBounds (r.removeFromRight (bw));
-        minBtn  .setBounds (r.removeFromRight (bw));
-    }
-
-    void mouseDown (const juce::MouseEvent&) override
-    {
-       #if JUCE_WINDOWS
-        if (auto* peer = getTopLevelComponent()->getPeer())
-        {
-            auto hwnd = (HWND) peer->getNativeHandle();
-            ReleaseCapture();
-            SendMessage (hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);   // native move + Aero Snap
-        }
-       #endif
-    }
-    void mouseDoubleClick (const juce::MouseEvent&) override { toggleMaximise(); }
-
-private:
-    WinButton minBtn { WinButton::Minimise }, maxBtn { WinButton::Maximise }, closeBtn { WinButton::Close };
-    bool maximised = false;
-    juce::Rectangle<int> restoreBounds;
-    juce::String statusText;
-    bool statusPlaying = false;
-
-    void nativeMinimise()
-    {
-       #if JUCE_WINDOWS
-        if (auto* peer = getTopLevelComponent()->getPeer())
-            ShowWindow ((HWND) peer->getNativeHandle(), SW_MINIMIZE);
-       #endif
-    }
-    void toggleMaximise()
-    {
-        auto* top = getTopLevelComponent();
-        if (top == nullptr) return;
-        if (! maximised)
-        {
-            restoreBounds = top->getBounds();
-            if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForPoint (top->getBounds().getCentre()))
-                top->setBounds (d->userArea);   // work area = excludes taskbar
-            maximised = true;
-        }
-        else { top->setBounds (restoreBounds); maximised = false; }
-    }
-};
-
 class MainComponent : public juce::AudioAppComponent,
                       private juce::ChangeListener,
                       private juce::Timer
@@ -321,11 +180,10 @@ public:
         addAndMakeVisible (*browser);
         browser->goToURL ("http://127.0.0.1:" + juce::String (kHttpPort) + "/");
 
-        // Custom in-style title bar (the window is borderless): app name,
-        // engine status and window buttons. Handles drag + Aero Snap natively.
-        // The views (Rack / Compose) live inside the single web page; the
-        // compose view is an iframe onto the local compose server.
-        addAndMakeVisible (titleBar);
+        // The window is borderless and the web page is its whole face: title
+        // row with menus, view switch and window buttons included. Dragging
+        // the title row and the window buttons come in over the WebSocket
+        // (window_drag / window_minimize / …) and are handled natively.
 
         deviceManager.addChangeListener (this);
 
@@ -627,7 +485,6 @@ public:
     void resized() override
     {
         auto r = getLocalBounds();
-        titleBar.setBounds (r.removeFromTop (34));   // custom title bar / caption
         if (browser != nullptr) browser->setBounds (r);
     }
 
@@ -1783,6 +1640,23 @@ private:
                 }
             });
         }
+        else if (cmd == "window_drag")
+        {
+            // The title row was pressed: hand the drag to Windows' own move
+            // loop so dragging and Aero Snap behave like a native caption.
+            juce::MessageManager::callAsync ([this]
+            {
+               #if JUCE_WINDOWS
+                if (auto* t = getTopLevelComponent())
+                    if (auto* peer = t->getPeer())
+                    {
+                        auto hwnd = (HWND) peer->getNativeHandle();
+                        ReleaseCapture();
+                        SendMessage (hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+                    }
+               #endif
+            });
+        }
         else if (cmd == "window_move_by")
         {
             const int dx = (int) v.getProperty ("dx", 0);
@@ -1799,11 +1673,20 @@ private:
         }
         else if (cmd == "window_maximize")
         {
+            // "Maximise" a borderless window = fill the monitor's work area
+            // (keeps the taskbar visible, no overhang); again = restore.
             juce::MessageManager::callAsync ([this]
             {
-                if (auto* t = getTopLevelComponent())
-                    if (auto* p = t->getPeer())
-                        p->setFullScreen (! p->isFullScreen());
+                auto* top = getTopLevelComponent();
+                if (top == nullptr) return;
+                if (! maximised)
+                {
+                    restoreBounds = top->getBounds();
+                    if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForPoint (top->getBounds().getCentre()))
+                        top->setBounds (d->userArea);
+                    maximised = true;
+                }
+                else { top->setBounds (restoreBounds); maximised = false; }
             });
         }
         else if (cmd == "window_close")
@@ -2542,7 +2425,8 @@ private:
     std::unique_ptr<juce::FileChooser>          chooser;
     std::unique_ptr<juce::FileChooser>          projectChooser;   // save/open project
     std::unique_ptr<juce::WebBrowserComponent>  browser;
-    TitleBar titleBar;                                          // custom caption + status + window buttons
+    bool                 maximised = false;      // window_maximize toggle state
+    juce::Rectangle<int> restoreBounds;
 };
 
 class MainWindow : public juce::DocumentWindow

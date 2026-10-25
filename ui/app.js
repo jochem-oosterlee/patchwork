@@ -1713,7 +1713,26 @@ function applyTempoState(m) {
     tempoTsBtn.textContent = m.tsNumerator + '/' + m.tsDenominator;
 }
 
-/* Window controls (min/max/close) + window drag live in the native title bar. */
+/* Window controls + drag: the title row is the window's caption. Buttons go
+   to the engine; a press on empty title-row space hands the drag to
+   Windows' native move loop (Aero Snap included); two quick presses toggle
+   maximise. */
+document.getElementById('win-min').addEventListener('click',   () => send({ cmd: 'window_minimize' }));
+document.getElementById('win-max').addEventListener('click',   () => send({ cmd: 'window_maximize' }));
+document.getElementById('win-close').addEventListener('click', () => send({ cmd: 'window_close' }));
+(() => {
+  const bar = document.querySelector('header.titlebar');
+  let lastPress = 0;
+  bar.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button, select, input, label, .no-drag')) return;
+    const now = performance.now();
+    if (now - lastPress < 400) { lastPress = 0; send({ cmd: 'window_maximize' }); return; }
+    lastPress = now;
+    e.preventDefault();
+    send({ cmd: 'window_drag' });
+  });
+})();
 
 /* dropdown menus */
 function closeAllMenus() {

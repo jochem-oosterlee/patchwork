@@ -348,7 +348,9 @@ header.titlebar {
 .tempo-clock:hover { color: var(--text); border: 0; }
 .tempo-clock.on    { color: var(--accent); }
 .tempo-clock .lucide { width: 12px; height: 12px; stroke-width: 1.8; }
-.icon-btn.winctrl { border: 0; }
+.win-controls { display: inline-flex; align-items: center; gap: 2px; margin-left: 10px; }
+.icon-btn.winctrl { border: 0; width: 34px; height: 26px; border-radius: 4px; }
+.icon-btn.winctrl .lucide { width: 14px; height: 14px; stroke-width: 1.8; }
 .icon-btn.winctrl:hover { background: rgba(255,255,255,0.06); }
 .icon-btn.winctrl.close:hover { background: rgba(214, 96, 74, 0.18); color: var(--danger); }
 header h1 {
