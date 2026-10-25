@@ -1725,7 +1725,9 @@ document.getElementById('win-close').addEventListener('click', () => send({ cmd:
   let lastPress = 0;
   bar.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    if (e.target.closest('button, select, input, label, .no-drag')) return;
+    // Everything that isn't a control is caption: the gaps inside the
+    // button groups included.
+    if (e.target.closest('button, select, input')) return;
     const now = performance.now();
     if (now - lastPress < 400) { lastPress = 0; send({ cmd: 'window_maximize' }); return; }
     lastPress = now;
