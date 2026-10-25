@@ -125,9 +125,11 @@ html.panel .footer, html.panel #settings-panel, html.panel .section-mini-toolbar
 html.panel .error-banner { display: none !important; }
 html.panel-pads #keyboard-panel { display: none !important; }
 html.panel-pads .tabs-header { display: none !important; }
-html.panel-pads .tabs { flex-shrink: 0; }
-html.panel-pads .page { display: none; overflow: auto; min-height: 0; }
-html.panel-pads .page.active { display: block; flex: 1 1 auto; }
+/* the page's own hide-chord-pad / hide-keyboard classes (the user's section
+   state, shared through localStorage) must not hide the one thing a panel is for */
+html.panel-pads .tabs { display: flex !important; flex-shrink: 0; }
+html.panel-pads .page { display: none !important; overflow: auto; min-height: 0; }
+html.panel-pads .page.active { display: block !important; flex: 1 1 auto; }
 html.panel-pads .card { margin: 8px; padding: 16px 24px 14px 36px; }
 html.panel-keyboard .tabs-header, html.panel-keyboard .tabs, html.panel-keyboard .page { display: none !important; }
 html.panel-keyboard #keyboard-panel { display: flex !important; height: 100vh; border-top: 0; padding: 6px 14px 10px; }
