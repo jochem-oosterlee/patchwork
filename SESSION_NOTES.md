@@ -317,14 +317,18 @@ zichtbaarheid (ook bij verbergen) in localStorage.
 
 ## Overzetten naar een andere machine
 
-Kopieer de hele map `build\MidiHost_artefacts\Release\`: `Patchwork.exe`,
-`WebView2Loader.dll` en `compose\` (de build kopieert `ui/compose` daarheen).
-De C-runtime is statisch gelinkt; WebView2 Runtime zit in Windows 11 (en in
-de meeste Windows 10-installaties via Edge). De engine zoekt de compose-view
-in deze volgorde: `chordPadDir` in settings.json → `compose\` naast de exe →
-`ui/compose` in de source tree. Plugins (VST3) komen van de doelmachine zelf;
-presets wijzen naar hun pad daar. Projectbestanden (`.pwproj`) zijn gewoon
-JSON en zijn overdraagbaar, mits dezelfde plugins aanwezig zijn.
+Eén bestand: `build\MidiHost_artefacts\Release\Patchwork.exe`. De C-runtime en
+de WebView2-loader zijn statisch gelinkt (`JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_
+LINKING` + `WebView2LoaderStatic.lib`), de compose-view zit als resources in
+de exe (`juce_add_binary_data … NAMESPACE ComposeData`, opgezocht op
+bestandsnaam). WebView2 Runtime zit in Windows 11 (en in de meeste Windows
+10-installaties via Edge). De engine serveert compose van schijf als er een
+map is (`chordPadDir` in settings.json, anders `ui/compose` in de source
+tree — dev, bewerken → herladen) en anders uit de exe. De exe-map moet
+schrijfbaar zijn (WebView2 maakt er `Patchwork.exe.WebView2` aan). Plugins
+(VST3) komen van de doelmachine zelf; presets wijzen naar hun pad daar.
+Projectbestanden (`.pwproj`) zijn JSON en overdraagbaar, mits dezelfde
+plugins aanwezig zijn.
 
 ## Huidige status
 

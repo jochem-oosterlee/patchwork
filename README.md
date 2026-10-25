@@ -32,4 +32,6 @@ cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release --parallel
 ```
 
-Resultaat: `build/MidiHost_artefacts/Release/Patchwork.exe`
+Resultaat: `build/MidiHost_artefacts/Release/Patchwork.exe` — één bestand, alles zit erin
+(UI, compose-view, WebView2-loader, C-runtime). Alleen de WebView2 Runtime van Windows
+is nodig, en die zit in Windows 11.

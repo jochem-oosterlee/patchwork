@@ -106,6 +106,7 @@ target_compile_definitions(MidiHost PRIVATE
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=1
     JUCE_USE_WIN_WEBVIEW2=1
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1   # no WebView2Loader.dll next to the exe
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_ASIO=${USE_ASIO}
     # Dev build: the engine serves ui/compose straight from the source tree so
@@ -118,27 +119,32 @@ target_include_directories(MidiHost PRIVATE
     "${webview2_SOURCE_DIR}/build/native/include"
 )
 
-# Copy WebView2Loader.dll and the compose view next to the exe at build time,
-# so the artefacts folder is a complete, portable install: Patchwork.exe +
-# WebView2Loader.dll + compose/. The engine serves compose/ from beside the exe
-# when it's there, otherwise from the source tree (dev).
-add_custom_command(TARGET MidiHost POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${webview2_SOURCE_DIR}/build/native/x64/WebView2Loader.dll"
-        "$<TARGET_FILE_DIR:MidiHost>/WebView2Loader.dll"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/ui/compose"
-        "$<TARGET_FILE_DIR:MidiHost>/compose"
-)
-
-# Bundle the UI as resources so we can serve them from the engine without
-# requiring an external folder at runtime.
+# Bundle both UIs as resources: the exe is the whole release. The shell UI is
+# always served from here; the compose view from here too unless a source
+# tree is around (dev: edits show up on reload).
 juce_add_binary_data(MidiHost_UI SOURCES
     ui/index.html
     ui/style.css
     ui/app.js
     resources/patchwork-icon.png
     resources/cable.svg
+)
+juce_add_binary_data(MidiHost_Compose HEADER_NAME ComposeData.h NAMESPACE ComposeData SOURCES
+    ui/compose/chord-pad.html
+    ui/compose/chord-pad.css
+    ui/compose/embed.css
+    ui/compose/js/analyzer.js
+    ui/compose/js/audio.js
+    ui/compose/js/chord-pad.js
+    ui/compose/js/chordview.js
+    ui/compose/js/kbinput.js
+    ui/compose/js/link.js
+    ui/compose/js/midi.js
+    ui/compose/js/pads.js
+    ui/compose/js/pianoroll.js
+    ui/compose/js/seq.js
+    ui/compose/js/trackroll.js
+    ui/compose/vendor/soundfont2.js
 )
 
 target_sources(MidiHost PRIVATE
@@ -147,6 +153,8 @@ target_sources(MidiHost PRIVATE
 
 target_link_libraries(MidiHost PRIVATE
     MidiHost_UI
+    MidiHost_Compose
+    "${webview2_SOURCE_DIR}/build/native/x64/WebView2LoaderStatic.lib"
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_audio_devices

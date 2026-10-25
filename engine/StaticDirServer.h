@@ -1,25 +1,33 @@
-// Minimal HTTP server that serves a directory from disk. Used to host the
-// chord-pad web app locally (http://127.0.0.1:<port>/) so it runs in a
-// secure context (Web MIDI) and can open a ws:// link to our engine without
-// mixed-content blocking. Files are read fresh per request (no-store), so
-// editing chord-pad on disk is picked up on reload.
+// Minimal HTTP server that serves the compose web app locally
+// (http://127.0.0.1:<port>/) so it runs in a secure context (Web MIDI) and
+// can open a ws:// link to our engine without mixed-content blocking. Serves
+// a directory from disk when given one (files read fresh per request, so
+// edits are picked up on reload), otherwise resources embedded in the exe
+// through the resolver.
 
 #pragma once
 
 #include <ixwebsocket/IXHttpServer.h>
 #include <ixwebsocket/IXNetSystem.h>
 #include <juce_core/juce_core.h>
+#include <functional>
 #include <memory>
 #include <string>
 
 class StaticDirServer
 {
 public:
-    // root = directory to serve; indexFile = what "/" maps to.
-    void start (int port, juce::File root, juce::String indexFile = "index.html")
+    // Embedded lookup: relative path (e.g. "js/seq.js") -> data, or false.
+    using Resolver = std::function<bool (const juce::String& relPath, const char*& data, int& size)>;
+
+    // root = directory to serve (may not exist: then the resolver is used);
+    // indexFile = what "/" maps to.
+    void start (int port, juce::File root, juce::String indexFile = "index.html", Resolver resolver = {})
     {
         rootDir   = std::move (root);
         indexName = std::move (indexFile);
+        resolve   = std::move (resolver);
+        fromDisk  = rootDir.isDirectory();
         ix::initNetSystem();
         server = std::make_unique<ix::HttpServer> (port, "127.0.0.1");
 
@@ -44,6 +52,17 @@ public:
                     return std::make_shared<ix::HttpResponse> (403, "Forbidden",
                         ix::HttpErrorCode::Ok, headers, std::string ("forbidden"));
 
+                if (! fromDisk)
+                {
+                    const char* data = nullptr; int size = 0;
+                    if (! resolve || ! resolve (rel, data, size) || data == nullptr)
+                        return std::make_shared<ix::HttpResponse> (404, "Not Found",
+                            ix::HttpErrorCode::Ok, headers, std::string ("not found"));
+                    headers["Content-Type"] = mimeFor (juce::File (rel).getFileExtension());
+                    return std::make_shared<ix::HttpResponse> (200, "OK",
+                        ix::HttpErrorCode::Ok, headers, std::string (data, (size_t) size));
+                }
+
                 juce::File f = rootDir.getChildFile (rel);
                 if (! f.existsAsFile())
                     return std::make_shared<ix::HttpResponse> (404, "Not Found",
@@ -67,6 +86,7 @@ public:
     }
 
     bool isListening() const      { return listening; }
+    bool servesFromDisk() const   { return fromDisk; }
     juce::String getError() const { return juce::String (listenError); }
 
     void stop() { if (server) { server->stop(); server.reset(); } }
@@ -98,6 +118,8 @@ private:
     std::unique_ptr<ix::HttpServer> server;
     juce::File   rootDir;
     juce::String indexName;
+    Resolver     resolve;
+    bool         fromDisk  { false };
     bool         listening { false };
     std::string  listenError;
 };

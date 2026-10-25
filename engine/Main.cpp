@@ -21,6 +21,7 @@
 #include "MidiManager.h"
 #include "PluginHost.h"
 #include "Sequencer.h"
+#include <ComposeData.h>   // the compose view, embedded
 #include "Settings.h"
 #include <BinaryData.h>
 
@@ -132,34 +133,35 @@ public:
 
         // Serve the compose view (our fork of chord-pad) locally so it runs in
         // a secure context (Web MIDI) and can open a ws:// link to us without
-        // mixed-content blocking. Looked up in this order: settings.chordPadDir,
-        // compose/ next to the exe (portable install), the source tree
-        // (dev, picks up edits on reload). Skipped silently if none exists.
+        // mixed-content blocking. From disk when a folder is around —
+        // settings.chordPadDir, else the source tree (dev: edits show on
+        // reload) — otherwise from the copy embedded in the exe.
         {
-            const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
             juce::File cpDir;
             if (settings.chordPadDir.isNotEmpty())
                 cpDir = juce::File (settings.chordPadDir);
-            else if (exeDir.getChildFile ("compose").getChildFile ("chord-pad.html").existsAsFile()
-                     && ! juce::File (PATCHWORK_UI_DIR).getChildFile ("compose").isDirectory())
-                cpDir = exeDir.getChildFile ("compose");
             else if (juce::File (PATCHWORK_UI_DIR).getChildFile ("compose").isDirectory())
                 cpDir = juce::File (PATCHWORK_UI_DIR).getChildFile ("compose");
-            else
-                cpDir = exeDir.getChildFile ("compose");
-            if (cpDir.isDirectory())
+
+            // Embedded files are looked up by file name (js/seq.js -> seq.js);
+            // the compose tree has no duplicate names.
+            auto embedded = [] (const juce::String& rel, const char*& data, int& size) -> bool
             {
-                chordPad.start (kChordPadPort, cpDir, "chord-pad.html");
-                if (chordPad.isListening())
-                    logToUi ("chord-pad served at http://127.0.0.1:"
-                             + juce::String (kChordPadPort) + "/  (" + cpDir.getFullPathName() + ")");
-                else
-                    logToUi ("chord-pad server failed: " + chordPad.getError());
-            }
+                const auto name = juce::File (rel).getFileName();
+                for (int i = 0; i < ComposeData::namedResourceListSize; ++i)
+                    if (name == ComposeData::originalFilenames[i])
+                    {
+                        data = ComposeData::getNamedResource (ComposeData::namedResourceList[i], size);
+                        return data != nullptr;
+                    }
+                return false;
+            };
+            chordPad.start (kChordPadPort, cpDir, "chord-pad.html", embedded);
+            if (chordPad.isListening())
+                logToUi ("compose view served at http://127.0.0.1:" + juce::String (kChordPadPort) + "/  ("
+                         + (chordPad.servesFromDisk() ? cpDir.getFullPathName() : juce::String ("embedded in the exe")) + ")");
             else
-            {
-                logToUi ("chord-pad dir not found (" + cpDir.getFullPathName() + ") — link server not started");
-            }
+                logToUi ("compose server failed: " + chordPad.getError());
         }
 
         // Embedded browser pointed at our local HTTP server.
